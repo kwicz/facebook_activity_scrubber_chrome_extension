@@ -1,0 +1,16 @@
+{
+  "name": "facebook-activity-scrubber",
+  "version": "1.0.0",
+  "description": "A Chrome extension that helps you clean up your Facebook activity log by automating the deletion of posts, comments, likes, and other activities.",
+  "main": "background.js",
+  "scripts": {},
+  "keywords": [
+    "chrome-extension",
+    "facebook",
+    "privacy",
+    "activity-log",
+    "cleanup"
+  ],
+  "author": "",
+  "license": "ISC"
+}
