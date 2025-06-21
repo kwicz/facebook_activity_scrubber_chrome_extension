@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Facebook Activity Scrubber",
   "version": "1.0",
-  "description": "Take control of your digital privacy with Facebook Activity Scrubber. Permanently remove your old posts, comments, likes, and activity history to protect your personal data and reduce your digital footprint. This tool helps you reclaim your privacy by bulk-deleting unwanted content while keeping your friends, photos, and important memories safe. Clean up years of social media activity in minutes, not hours. Your data, your choice, your privacy.",
+  "description": "Bulk delete your Facebook posts, comments, and activity history to protect your privacy and reduce your digital footprint.",
   "permissions": ["scripting", "storage", "activeTab", "contextMenus"],
   "host_permissions": ["https://*.facebook.com/*"],
   "action": {
