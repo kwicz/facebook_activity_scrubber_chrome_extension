@@ -465,70 +465,73 @@ async function processNextBatch() {
         'warning'
       );
 
-      if (consecutiveFailures >= settings.maxConsecutiveFailures) {
-        // Try refreshing the page if no menu buttons are found
-        if (pageRefreshes < settings.maxPageRefreshes) {
-          pageRefreshes++;
-          consecutiveFailures = 0;
+      // Try scrolling to load more content only once
+      if (consecutiveFailures === 1) {
+        log('Trying to scroll for more content...', 'info');
+        await scrollForMoreItems();
 
-          // Update page refreshes in background
-          chrome.runtime.sendMessage({
-            action: 'updatePageRefreshes',
-            count: pageRefreshes,
-          });
-
-          log(
-            `Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`,
-            'info'
-          );
-          updateStatusMessage(
-            `Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`
-          );
-
-          // Perform a page refresh
-          window.location.reload();
-          return;
-        } else {
-          // We've reached maximum page refreshes, assume we're done
-          isRunning = false;
-          log('Maximum page refreshes reached. Cleaning completed.', 'info');
-          updateStatusMessage(
-            `Cleaning completed: ${stats.deleted} deleted, ${stats.failed} failed. Max refreshes reached.`
-          );
-
-          // Notify background script that we're stopping
-          chrome.runtime.sendMessage({
-            action: 'stopCleaning',
-          });
-          return;
-        }
+        // Check again after scrolling
+        setTimeout(() => {
+          if (isRunning && !isPaused) {
+            processNextBatch();
+          }
+        }, settings.timing.pageLoad);
+        return;
       }
 
-      // Try scrolling to load more content
-      log('Trying to scroll for more content...', 'info');
-      await scrollForMoreItems();
+      // Refresh the page if no buttons are found after scrolling
+      if (pageRefreshes < settings.maxPageRefreshes) {
+        pageRefreshes++;
+        consecutiveFailures = 0;
 
-      // Continue to next attempt
-      setTimeout(() => {
-        if (isRunning && !isPaused) {
-          processNextBatch();
-        }
-      }, settings.timing.pageLoad);
-      return;
+        // Update page refreshes in background
+        chrome.runtime.sendMessage({
+          action: 'updatePageRefreshes',
+          count: pageRefreshes,
+        });
+
+        log(
+          `Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`,
+          'info'
+        );
+        updateStatusMessage(
+          `Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`
+        );
+
+        // Perform a page refresh
+        window.location.reload();
+        return;
+      } else {
+        // We've reached maximum page refreshes, assume we're done
+        isRunning = false;
+        log('Maximum page refreshes reached. Cleaning completed.', 'info');
+        updateStatusMessage(
+          `Cleaning completed: ${stats.deleted} deleted, ${stats.failed} failed. Max refreshes reached.`
+        );
+
+        // Notify background script that we're stopping
+        chrome.runtime.sendMessage({
+          action: 'stopCleaning',
+        });
+        return;
+      }
     }
 
     // Reset consecutive failures counter if we found items
     consecutiveFailures = 0;
 
-    // Find the first visible menu button
+    // Check if there are any visible buttons before scrolling
     let visibleButton = null;
-    log(
-      `Found ${menuButtons.length} activity items with "More options" buttons`,
-      'info'
-    );
+    let allButtonsHandled = true;
 
-    // First try to find a button that's already in view
     for (const button of menuButtons) {
+      if (button.dataset.deletionHandled) {
+        log('Skipping already handled item', 'info');
+        continue; // Move to the next button
+      }
+
+      allButtonsHandled = false; // Found at least one unhandled button
+
       const rect = button.getBoundingClientRect();
       if (
         rect.top >= 0 &&
@@ -542,12 +545,47 @@ async function processNextBatch() {
       }
     }
 
-    // If no visible button found, use the first one and scroll it into view
-    if (!visibleButton && menuButtons.length > 0) {
-      visibleButton = menuButtons[0];
-      log('No button in view, scrolling first button into viewport', 'info');
-      visibleButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      await sleep(300);
+    // If all buttons are handled, refresh the page to find more items
+    if (allButtonsHandled && menuButtons.length > 0) {
+      log(
+        'All visible buttons have been handled, refreshing page for more items...',
+        'info'
+      );
+
+      if (pageRefreshes < settings.maxPageRefreshes) {
+        pageRefreshes++;
+
+        // Update page refreshes in background
+        chrome.runtime.sendMessage({
+          action: 'updatePageRefreshes',
+          count: pageRefreshes,
+        });
+
+        log(
+          `Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`,
+          'info'
+        );
+        updateStatusMessage(
+          `Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`
+        );
+
+        // Perform a page refresh
+        window.location.reload();
+        return;
+      } else {
+        // We've reached maximum page refreshes, assume we're done
+        isRunning = false;
+        log('Maximum page refreshes reached. Cleaning completed.', 'info');
+        updateStatusMessage(
+          `Cleaning completed: ${stats.deleted} deleted, ${stats.failed} failed. Max refreshes reached.`
+        );
+
+        // Notify background script that we're stopping
+        chrome.runtime.sendMessage({
+          action: 'stopCleaning',
+        });
+        return;
+      }
     }
 
     if (!visibleButton) {
@@ -598,6 +636,8 @@ async function processNextBatch() {
     log('Clicking "More options" button...', 'info');
     // Click the menu button
     menuButton.click();
+    // Mark the item as handled immediately after clicking
+    menuButton.dataset.deletionHandled = 'true';
     await sleep(settings.timing.menuWait);
 
     // Look for the menu items - using the same selector as in standalone script
@@ -621,7 +661,7 @@ async function processNextBatch() {
 
     log(`Found ${menuItems.length} menu items`, 'info');
 
-    // Check for specific action buttons we want to click using the same approach as standalone script
+    // Check for specific action buttons we want to click
     let menuItemToClick = null;
     let menuText = null;
     const targetActions = [
@@ -632,7 +672,7 @@ async function processNextBatch() {
       'Remove Reaction',
     ];
 
-    // Loop through all menu items to find the target actions - same as in standalone script
+    // Loop through all menu items to find the target actions
     for (const menuItem of menuItems) {
       const itemText = menuItem.textContent.trim();
 
@@ -645,6 +685,17 @@ async function processNextBatch() {
         log(`Found target action: "${menuText}"`, 'success');
         break;
       }
+    }
+
+    // Handle the case where the only option is 'Hide from profile'
+    if (
+      !menuItemToClick &&
+      menuItems.length === 1 &&
+      menuItems[0].textContent.trim() === 'Hide from profile'
+    ) {
+      log('Only option is "Hide from profile", clicking it', 'info');
+      menuItemToClick = menuItems[0];
+      menuText = 'Hide from profile';
     }
 
     // If we didn't find any of our target actions
@@ -674,6 +725,10 @@ async function processNextBatch() {
     log(`Clicking "${menuText}" menu item...`, 'info');
     menuItemToClick.click();
     await sleep(settings.timing.modalWait);
+
+    // Mark the item as handled to prevent re-evaluation
+    log('Marking item as handled to prevent re-evaluation', 'info');
+    menuButton.dataset.deletionHandled = 'true';
 
     log('Looking for confirmation modal...', 'info');
 
