@@ -3,6 +3,7 @@ let isRunning = false;
 let stats = {
   deleted: 0,
   failed: 0,
+  skipped: 0,
   total: 0,
 };
 
@@ -105,26 +106,6 @@ document.addEventListener('DOMContentLoaded', function () {
         // Just rely on the storage and message listeners for state updates
       }
     );
-
-    // Double-check if command was received in 2 seconds
-    setTimeout(function () {
-      chrome.storage.local.get(
-        ['isRunning', 'lastCommandTime'],
-        function (result) {
-          // If isRunning is still true but no recent command acknowledgment
-          const now = Date.now();
-          const lastCommand = result.lastCommandTime || 0;
-
-          if (isRunning && now - lastCommand > 3000) {
-            // Might have failed to start, show message but keep state as is
-            // since content script might be working even without acknowledgment
-            updateStatus(
-              "Warning: Did not get confirmation from Facebook page. If cleaning doesn't start, try reloading the page."
-            );
-          }
-        }
-      );
-    }, 2000);
   }
 
   // Send stop command to content script
@@ -177,7 +158,8 @@ document.addEventListener('DOMContentLoaded', function () {
 // Helper function to update the stats display
 function updateStatsDisplay() {
   document.getElementById('deletedCount').textContent = stats.deleted;
-  document.getElementById('failedCount').textContent = stats.failed;
+  document.getElementById('failedCount').textContent =
+    stats.skipped || stats.failed || 0;
 }
 
 // Helper function to update status text
