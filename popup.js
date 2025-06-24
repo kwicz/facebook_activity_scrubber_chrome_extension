@@ -13,8 +13,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const startButton = document.getElementById('startButton');
   const viewActivityLogButton = document.getElementById('viewActivityLog');
   const statusElement = document.getElementById('status');
-  const pageStatusElement = document.getElementById('pageStatus');
-  const pageStatusText = document.getElementById('pageStatusText');
   const step2 = document.querySelector('.step:nth-child(2)');
   const step3 = document.querySelector('.step:nth-child(3)');
 
@@ -77,29 +75,21 @@ document.addEventListener('DOMContentLoaded', function () {
   function updatePageStatus(isCorrect, message) {
     isOnActivityPage = isCorrect;
 
-    if (pageStatusElement && pageStatusText) {
-      pageStatusElement.style.display = 'block';
-      pageStatusText.textContent = message;
+    if (isCorrect) {
+      viewActivityLogButton.classList.remove('bounce', 'btn-warning');
+      viewActivityLogButton.classList.add('btn-secondary');
 
-      if (isCorrect) {
-        pageStatusElement.className = 'page-status correct';
-        step2.classList.remove('highlight');
-        viewActivityLogButton.classList.remove('bounce', 'btn-warning');
-        viewActivityLogButton.classList.add('btn-secondary');
+      // Update main status when on correct page
+      if (!isRunning) {
+        updateStatus('Ready to clean your Facebook activity');
+      }
+    } else {
+      viewActivityLogButton.classList.remove('btn-secondary');
+      viewActivityLogButton.classList.add('bounce', 'btn-warning');
 
-        // Update main status when on correct page
-        if (!isRunning) {
-          updateStatus('Ready to clean your Facebook activity');
-        }
-      } else {
-        pageStatusElement.className = 'page-status incorrect';
-        viewActivityLogButton.classList.remove('btn-secondary');
-        viewActivityLogButton.classList.add('bounce', 'btn-warning');
-
-        // Update main status when not on correct page
-        if (!isRunning) {
-          updateStatus('Please navigate to your Facebook Activity Log first');
-        }
+      // Update main status when not on correct page
+      if (!isRunning) {
+        updateStatus('Please navigate to your Facebook Activity Log first');
       }
     }
 
@@ -111,9 +101,8 @@ document.addEventListener('DOMContentLoaded', function () {
   startButton.addEventListener('click', function () {
     // Prevent starting if not on activity page
     if (!isOnActivityPage && !isRunning) {
-      // Shake the start button and highlight step 2
+      // Shake the start button
       startButton.classList.add('shake');
-      step2.classList.add('highlight');
       viewActivityLogButton.classList.add('bounce');
 
       updateStatus('Please go to your Activity Log page first!');

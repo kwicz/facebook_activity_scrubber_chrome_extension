@@ -350,13 +350,26 @@ class FBCleanerDebugger {
   }
 }
 
-// Create global debugger instance
+// Create global debugger instance (but don't auto-initialize)
 window.fbCleanerDebugger = new FBCleanerDebugger();
 
-// Auto-initialize after a short delay
-setTimeout(() => {
-  window.fbCleanerDebugger.init();
-}, 1000);
+// DEBUG PANEL CONTROL FUNCTION
+// Uncomment the line below in your code when you want to enable the debug panel:
+// enableDebugPanel();
+
+function enableDebugPanel() {
+  if (!window.fbCleanerDebugger.isInitialized) {
+    window.fbCleanerDebugger.init();
+    console.log(
+      '🔧 Debug panel enabled. Press Ctrl+Shift+D to toggle visibility.'
+    );
+  } else {
+    window.fbCleanerDebugger.show();
+  }
+}
+
+// Make enableDebugPanel available globally for easy access
+window.enableDebugPanel = enableDebugPanel;
 
 // Hook into stats updates if the function exists
 if (window.updateStats) {
