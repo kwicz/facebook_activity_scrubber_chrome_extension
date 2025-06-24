@@ -603,7 +603,7 @@ async function scrollForMoreItems() {
   for (let i = 0; i < 2; i++) {
     window.scrollBy(0, 500);
     log(`Scroll attempt ${i + 1}/2 completed`, 'info');
-    await sleep(1000);
+    await sleep(800);
 
     if (document.body.scrollHeight > previousHeight) {
       log('New content loaded after scrolling', 'info');
