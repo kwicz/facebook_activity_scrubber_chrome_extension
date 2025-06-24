@@ -20,6 +20,12 @@ This Chrome extension helps you delete activities from your Facebook activity lo
 - **Visual feedback**: Real-time progress updates during the deletion process
 - **Browser-based**: Runs directly in your browser without need for external scripts or installations
 - **Safe automation**: Respects Facebook's interface and provides controlled deletion process
+- **⚠️ Important**: This extension **ONLY** deletes your activity history content. It will **NOT**:
+  - Unfollow pages you've liked
+  - Unfriend your friends
+  - Remove your friends list or connections
+  - Delete your profile information
+  - Modify your account settings
 
 ## Installation
 
