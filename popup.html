@@ -355,12 +355,28 @@
         }
       }
 
-      .btn:disabled {
-        background: #9ca3af;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-        opacity: 0.6;
+      .btn-debug {
+        background: #6b7280;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 10px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        opacity: 0.7;
+      }
+
+      .btn-debug:hover {
+        background: #4b5563;
+        opacity: 1;
+        transform: translateY(-1px);
+      }
+
+      .btn-debug.active {
+        background: #10b981;
+        opacity: 1;
       }
     </style>
   </head>
@@ -426,6 +442,13 @@
 
       <div class="progress-bar">
         <div class="progress-fill" id="progressFill"></div>
+      </div>
+
+      <!-- Debug Panel Toggle -->
+      <div class="debug-toggle" style="margin-top: 8px; text-align: center">
+        <button id="debugToggle" class="btn-debug" title="Toggle Debug Panel">
+          Debug
+        </button>
       </div>
     </div>
 

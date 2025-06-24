@@ -51,10 +51,7 @@ class FBCleanerDebugger {
 
     this.debugPanel.innerHTML = `
       <div style="font-weight: bold; margin-bottom: 10px; color: #4CAF50;">
-        🔧 FB Cleaner Debug Panel
-      </div>
-      <div id="debug-stats" style="margin-bottom: 10px;">
-        Loading stats...
+        Debugger Panel
       </div>
       <div style="margin-bottom: 10px;">
         <button id="debug-scan" style="background: #2196F3; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;">
@@ -175,33 +172,6 @@ class FBCleanerDebugger {
     }
   }
 
-  // Update debug stats display
-  updateStats() {
-    const debugStats = document.getElementById('debug-stats');
-    if (!debugStats) return;
-
-    // Get stats from global scope
-    const stats = window.stats || {};
-    const isRunning = window.isRunning || false;
-    const isPaused = window.isPaused || false;
-
-    debugStats.innerHTML = `
-      <div style="color: #4CAF50;">✅ Deleted: ${stats.deleted || 0}</div>
-      <div style="color: #f44336;">❌ Failed: ${stats.failed || 0}</div>
-      <div style="color: #FF9800;">⏭️ Skipped: ${stats.skipped || 0}</div>
-      <div style="color: #2196F3;">📊 Total: ${stats.total || 0}</div>
-      <div style="color: #9C27B0;">🔄 Refreshes: ${
-        stats.pageRefreshes || 0
-      }</div>
-      <div style="color: #607D8B;">📈 Progress: ${(stats.progress || 0).toFixed(
-        1
-      )}%</div>
-      <div style="color: ${isRunning ? '#4CAF50' : '#f44336'};">
-        Status: ${isRunning ? (isPaused ? 'PAUSED' : 'RUNNING') : 'STOPPED'}
-      </div>
-    `;
-  }
-
   // Perform page scan
   performScan() {
     const resultsDiv = document.getElementById('debug-scan-results');
@@ -289,8 +259,8 @@ class FBCleanerDebugger {
           </div>
         `;
 
-        // Update main stats display
-        this.updateStats();
+        // Scan completed successfully
+        this.log('Page scan completed', 'info');
       } catch (error) {
         resultsDiv.innerHTML = `<div style="color: #f44336;">❌ Scan error: ${error.message}</div>`;
         this.log(`Debug scan error: ${error.message}`, 'error');
@@ -310,7 +280,7 @@ class FBCleanerDebugger {
   show() {
     if (this.debugPanel) {
       this.debugPanel.style.display = 'block';
-      this.updateStats();
+      this.log('Debug panel opened', 'info');
     }
   }
 
@@ -370,21 +340,3 @@ function enableDebugPanel() {
 
 // Make enableDebugPanel available globally for easy access
 window.enableDebugPanel = enableDebugPanel;
-
-// Hook into stats updates if the function exists
-if (window.updateStats) {
-  const originalUpdateStats = window.updateStats;
-  window.updateStats = function () {
-    originalUpdateStats.call(this);
-    if (window.fbCleanerDebugger) {
-      window.fbCleanerDebugger.updateStats();
-    }
-  };
-}
-
-// Periodically update stats in case we missed the hook
-setInterval(() => {
-  if (window.fbCleanerDebugger && window.fbCleanerDebugger.isInitialized) {
-    window.fbCleanerDebugger.updateStats();
-  }
-}, 2000);

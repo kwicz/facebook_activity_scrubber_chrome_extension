@@ -929,6 +929,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'ping') {
     sendResponse({ status: 'ok' });
     return true;
+  } else if (message.action === 'toggleDebug') {
+    // Handle debug panel toggle
+    if (message.enabled) {
+      // Enable debug panel
+      if (
+        window.enableDebugPanel &&
+        typeof window.enableDebugPanel === 'function'
+      ) {
+        window.enableDebugPanel();
+        sendResponse({ success: true, message: 'Debug panel enabled' });
+      } else {
+        sendResponse({ success: false, message: 'Debug panel not available' });
+      }
+    } else {
+      // Disable debug panel
+      if (window.fbCleanerDebugger && window.fbCleanerDebugger.isInitialized) {
+        window.fbCleanerDebugger.hide();
+        sendResponse({ success: true, message: 'Debug panel disabled' });
+      } else {
+        sendResponse({
+          success: true,
+          message: 'Debug panel already disabled',
+        });
+      }
+    }
+    return true;
   }
 });
 
@@ -944,3 +970,23 @@ function updateExtensionBadge() {
     // Ignore if popup/background is not available
   }
 }
+
+// Initialize debug panel state on page load
+(function initializeDebugState() {
+  try {
+    chrome.storage.local.get(['debugEnabled'], function (result) {
+      if (
+        result.debugEnabled &&
+        window.enableDebugPanel &&
+        typeof window.enableDebugPanel === 'function'
+      ) {
+        // Small delay to ensure debugger is ready
+        setTimeout(() => {
+          window.enableDebugPanel();
+        }, 1500);
+      }
+    });
+  } catch (error) {
+    // Ignore if storage is not available
+  }
+})();

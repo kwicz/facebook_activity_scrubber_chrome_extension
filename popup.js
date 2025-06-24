@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const statusElement = document.getElementById('status');
   const step2 = document.querySelector('.step:nth-child(2)');
   const step3 = document.querySelector('.step:nth-child(3)');
+  const debugToggle = document.getElementById('debugToggle');
 
   // Check page status immediately
   checkPageStatus();
@@ -36,6 +37,15 @@ document.addEventListener('DOMContentLoaded', function () {
     updateButtonState();
   });
 
+  // Debug toggle functionality
+  let debugEnabled = false;
+
+  // Load debug state from storage
+  chrome.storage.local.get(['debugEnabled'], function (result) {
+    debugEnabled = !!result.debugEnabled;
+    updateDebugToggleUI();
+  });
+
   // Function to check if user is on the correct page
   function checkPageStatus() {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
@@ -55,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const activityPagePatterns = [
         '/me/allactivity',
         '/allactivity',
-        'facebook.com/me/allactivity',
+        'allactivity',
         'activity_log',
       ];
 
@@ -239,6 +249,84 @@ document.addEventListener('DOMContentLoaded', function () {
       chrome.storage.local.set({ lastCommandTime: Date.now() });
     }
   });
+
+  // Debug toggle button handler
+  if (debugToggle) {
+    debugToggle.addEventListener('click', function () {
+      console.log('Debug toggle clicked, current state:', debugEnabled);
+
+      debugEnabled = !debugEnabled;
+
+      // Save debug state
+      chrome.storage.local.set({ debugEnabled: debugEnabled });
+
+      // Update UI
+      updateDebugToggleUI();
+
+      // Send message to content script to toggle debug panel
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (tabs && tabs[0]) {
+          console.log('Current tab URL:', tabs[0].url);
+
+          if (tabs[0].url.includes('facebook.com')) {
+            console.log('On Facebook, ensuring content script is injected...');
+
+            // Ensure content script is injected before sending message
+            ensureContentScriptInjected(tabs[0].id, function (success) {
+              if (success) {
+                console.log(
+                  'Content script ready, sending debug toggle message...'
+                );
+
+                chrome.tabs.sendMessage(
+                  tabs[0].id,
+                  {
+                    action: 'toggleDebug',
+                    enabled: debugEnabled,
+                  },
+                  function (response) {
+                    if (chrome.runtime.lastError) {
+                      console.error(
+                        'Debug toggle error:',
+                        chrome.runtime.lastError.message
+                      );
+                    } else {
+                      console.log('Debug toggle response:', response);
+                    }
+                  }
+                );
+              } else {
+                console.error(
+                  'Failed to inject content script for debug toggle'
+                );
+              }
+            });
+          } else {
+            console.log(
+              'Not on Facebook page, debug toggle only works on Facebook'
+            );
+          }
+        } else {
+          console.error('No active tab found');
+        }
+      });
+    });
+  }
+
+  // Update debug toggle button appearance
+  function updateDebugToggleUI() {
+    if (debugToggle) {
+      if (debugEnabled) {
+        debugToggle.classList.add('active');
+        debugToggle.textContent = 'Debug ON';
+        debugToggle.title = 'Click to disable debug panel';
+      } else {
+        debugToggle.classList.remove('active');
+        debugToggle.textContent = 'Debug OFF';
+        debugToggle.title = 'Click to enable debug panel';
+      }
+    }
+  }
 });
 
 // Helper function to update the stats display
@@ -291,26 +379,26 @@ function ensureContentScriptInjected(tabId, callback) {
       if (chrome.runtime.lastError) {
         console.log('Content script not detected, injecting it now...');
 
-        // Inject the script
+        // Inject both scripts in the correct order (debugger.js first, then content.js)
         chrome.scripting.executeScript(
           {
             target: { tabId: tabId },
-            files: ['content.js'],
+            files: ['debugger.js', 'content.js'],
           },
           function (results) {
             if (chrome.runtime.lastError) {
               console.error(
-                'Error injecting content script:',
+                'Error injecting content scripts:',
                 chrome.runtime.lastError.message
               );
               callback(false);
             } else {
-              console.log('Content script injected successfully');
+              console.log('Content scripts injected successfully');
 
-              // Wait a moment for the script to initialize then verify it's working
+              // Wait a moment for the scripts to initialize then verify it's working
               setTimeout(function () {
                 verifyContentScriptActive(tabId, callback);
-              }, 500);
+              }, 1000);
             }
           }
         );
@@ -349,20 +437,20 @@ function injectContentScript(tabId, callback) {
   chrome.scripting.executeScript(
     {
       target: { tabId: tabId },
-      files: ['content.js'],
+      files: ['debugger.js', 'content.js'],
     },
     function () {
       if (chrome.runtime.lastError) {
         console.error(
-          'Error injecting content script:',
+          'Error injecting content scripts:',
           chrome.runtime.lastError.message
         );
         callback(false);
       } else {
-        // Wait for script to initialize before callback
+        // Wait for scripts to initialize before callback
         setTimeout(function () {
           verifyContentScriptActive(tabId, callback);
-        }, 500);
+        }, 1000);
       }
     }
   );

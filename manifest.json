@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["https://*.facebook.com/*"],
-      "js": ["content.js", "debugger.js"]
+      "js": ["debugger.js", "content.js"]
     }
   ],
   "icons": {
