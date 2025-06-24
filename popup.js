@@ -1,5 +1,6 @@
 // Variables to track state
 let isRunning = false;
+let isOnActivityPage = false;
 let stats = {
   deleted: 0,
   failed: 0,
@@ -12,6 +13,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const startButton = document.getElementById('startButton');
   const viewActivityLogButton = document.getElementById('viewActivityLog');
   const statusElement = document.getElementById('status');
+  const pageStatusElement = document.getElementById('pageStatus');
+  const pageStatusText = document.getElementById('pageStatusText');
+  const step2 = document.querySelector('.step:nth-child(2)');
+  const step3 = document.querySelector('.step:nth-child(3)');
+
+  // Check page status immediately
+  checkPageStatus();
+
+  // Check page status periodically
+  setInterval(checkPageStatus, 2000);
 
   // Load any previous stats from storage
   chrome.storage.local.get(['cleanerStats'], function (result) {
@@ -27,8 +38,94 @@ document.addEventListener('DOMContentLoaded', function () {
     updateButtonState();
   });
 
+  // Function to check if user is on the correct page
+  function checkPageStatus() {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+      if (!tabs || !tabs[0]) {
+        updatePageStatus(false, 'Could not access current tab');
+        return;
+      }
+
+      const currentUrl = tabs[0].url;
+
+      if (!currentUrl.includes('facebook.com')) {
+        updatePageStatus(false, 'Not on Facebook');
+        return;
+      }
+
+      // Check if on activity log page
+      const activityPagePatterns = [
+        '/me/allactivity',
+        '/allactivity',
+        'facebook.com/me/allactivity',
+        'activity_log',
+      ];
+
+      const isOnCorrectPage = activityPagePatterns.some((pattern) =>
+        currentUrl.includes(pattern)
+      );
+
+      if (isOnCorrectPage) {
+        updatePageStatus(true, 'Ready to clean activity log');
+      } else {
+        updatePageStatus(false, 'Please go to your Activity Log page');
+      }
+    });
+  }
+
+  // Function to update page status UI
+  function updatePageStatus(isCorrect, message) {
+    isOnActivityPage = isCorrect;
+
+    if (pageStatusElement && pageStatusText) {
+      pageStatusElement.style.display = 'block';
+      pageStatusText.textContent = message;
+
+      if (isCorrect) {
+        pageStatusElement.className = 'page-status correct';
+        step2.classList.remove('highlight');
+        viewActivityLogButton.classList.remove('bounce', 'btn-warning');
+        viewActivityLogButton.classList.add('btn-secondary');
+
+        // Update main status when on correct page
+        if (!isRunning) {
+          updateStatus('Ready to clean your Facebook activity');
+        }
+      } else {
+        pageStatusElement.className = 'page-status incorrect';
+        viewActivityLogButton.classList.remove('btn-secondary');
+        viewActivityLogButton.classList.add('bounce', 'btn-warning');
+
+        // Update main status when not on correct page
+        if (!isRunning) {
+          updateStatus('Please navigate to your Facebook Activity Log first');
+        }
+      }
+    }
+
+    // Update start button state
+    updateButtonState();
+  }
+
   // Start/Stop button handler
   startButton.addEventListener('click', function () {
+    // Prevent starting if not on activity page
+    if (!isOnActivityPage && !isRunning) {
+      // Shake the start button and highlight step 2
+      startButton.classList.add('shake');
+      step2.classList.add('highlight');
+      viewActivityLogButton.classList.add('bounce');
+
+      updateStatus('Please go to your Activity Log page first!');
+
+      // Remove shake animation after it completes
+      setTimeout(() => {
+        startButton.classList.remove('shake');
+      }, 500);
+
+      return;
+    }
+
     if (!isRunning) {
       // Starting the cleaning process
 
@@ -174,9 +271,19 @@ function updateStatus(message) {
 function updateButtonState() {
   const startButton = document.getElementById('startButton');
   if (startButton) {
-    startButton.textContent = isRunning ? 'Stop Cleaning' : 'Start Cleaning';
-    // Add visual indication of state while preserving the btn class
-    startButton.className = isRunning ? 'btn running' : 'btn';
+    if (isRunning) {
+      startButton.textContent = 'Stop Cleaning';
+      startButton.className = 'btn running';
+      startButton.disabled = false;
+    } else if (!isOnActivityPage) {
+      startButton.textContent = 'Go to Activity Page First';
+      startButton.className = 'btn';
+      startButton.disabled = true;
+    } else {
+      startButton.textContent = 'Start Cleaning Process';
+      startButton.className = 'btn';
+      startButton.disabled = false;
+    }
   }
 }
 
