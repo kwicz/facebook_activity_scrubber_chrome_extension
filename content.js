@@ -331,11 +331,9 @@ async function processSingleItem(menuButton) {
             const textContent = nextSibling.textContent;
             if (textContent && textContent.includes(' was untagged in ')) {
               log('Found a WAS TAGGED IN post', 'error');
-              // Close the menu and mark this button as permanent-tag
-              document.dispatchEvent(
-                new KeyboardEvent('keydown', { key: 'Escape' })
-              );
-              await sleep(800);
+              // Close the menu by clicking the button again
+              menuButton.click();
+              await sleep(300);
 
               // Add permanent-tag class to this menu button so it gets skipped in future
               menuButton.classList.add('permanent-tag');
@@ -378,14 +376,12 @@ async function processSingleItem(menuButton) {
           hasOnlyAddToProfile = true;
           log('Found menu with only "Add to profile" option', 'warn');
 
+          // Close the menu by clicking the button again
+          menuButton.click();
+          await sleep(300);
+
           // Mark the menu button with permanent-profile-change class
           menuButton.classList.add('permanent-profile-change');
-
-          // Close the menu and skip this item
-          document.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Escape' })
-          );
-          await sleep(800);
 
           stats.skipped++;
           stats.total++;
