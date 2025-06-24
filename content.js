@@ -4,8 +4,7 @@
 // Inject CSS for permanent-tag styling
 const style = document.createElement('style');
 style.textContent = `
-  .permanent-tag::after {
-        content: "Untagged items cannot be removed";
+  .fas-permanent::after {
         position: absolute;
         bottom: -25px;
         transform: translateX(-50%);
@@ -20,44 +19,21 @@ style.textContent = `
         box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3);
         border: 1px solid #cc0000;
         pointer-events: none;
+  }
+  
+  .fas-permanent-tag::after {
+        content: "Untagged items cannot be removed";
+  }
+  
+  .fas-permanent-profile-change {
+        position: relative;
+  }
+  
+  .fas-permanent-profile-change::after {
+        content: "Profile changes cannot be removed";
   }
 `;
 document.head.appendChild(style);
-
-// Inject CSS styles for permanent profile change buttons
-function injectStyles() {
-  if (!document.getElementById('fb-cleaner-styles')) {
-    const style = document.createElement('style');
-    style.id = 'fb-cleaner-styles';
-    style.textContent = `
-      .permanent-profile-change::after {
-        content: "Profile changes cannot be removed";
-        position: absolute;
-        bottom: -25px;
-        transform: translateX(-50%);
-        background: #ff4444;
-        color: white;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 10px;
-        font-weight: 500;
-        white-space: nowrap;
-        z-index: 10000;
-        box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3);
-        border: 1px solid #cc0000;
-        pointer-events: none;
-      }
-      
-      .permanent-profile-change {
-        position: relative;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-}
-
-// Initialize styles when script loads
-injectStyles();
 
 // --- Global State ---
 let isRunning = false;
@@ -68,11 +44,12 @@ let settings = {
   batchSize: 10,
   pauseInterval: 1000,
   timing: {
-    menuWait: 700,
-    modalWait: 700,
-    actionComplete: 1200,
-    nextItem: 1000,
-    pageLoad: 2500,
+    menuWait: 500,
+    modalWait: 500,
+    actionComplete: 800,
+    nextItem: 600,
+    pageLoad: 2000,
+    noModalWait: 300,
   },
   maxConsecutiveFailures: 5,
   maxPageRefreshes: 5,
@@ -211,10 +188,10 @@ async function processNextBatch() {
     try {
       // Find all menu buttons
       const menuButtons = document.querySelectorAll(
-        'div[aria-label="More options"]:not(.permanent-tag):not(.permanent-profile-change)'
+        'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
       );
 
-      await sleep(800);
+      await sleep(600);
 
       if (menuButtons.length === 0) {
         consecutiveFailures++;
@@ -286,8 +263,8 @@ async function processNextBatch() {
       // Try to recover
       try {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-        await sleep(800);
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); // Press twice
+        await sleep(500);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       } catch (escapeError) {
         // Ignore if Escape fails
       }
@@ -306,7 +283,7 @@ async function processSingleItem(menuButton) {
 
     // Store element count before action for change detection
     const elementCountBefore = document.querySelectorAll(
-      'div[aria-label="More options"]:not(.permanent-tag):not(.permanent-profile-change)'
+      'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
     ).length;
     const urlBefore = window.location.href;
 
@@ -336,7 +313,8 @@ async function processSingleItem(menuButton) {
               await sleep(300);
 
               // Add permanent-tag class to this menu button so it gets skipped in future
-              menuButton.classList.add('permanent-tag');
+              menuButton.classList.add('fas-permanent-tag');
+              menuButton.classList.add('fas-permanent');
 
               stats.skipped++;
               stats.total++;
@@ -381,7 +359,8 @@ async function processSingleItem(menuButton) {
           await sleep(300);
 
           // Mark the menu button with permanent-profile-change class
-          menuButton.classList.add('permanent-profile-change');
+          menuButton.classList.add('fas-permanent-profile-change');
+          menuButton.classList.add('fas-permanent');
 
           stats.skipped++;
           stats.total++;
@@ -406,7 +385,7 @@ async function processSingleItem(menuButton) {
       if (!menuItemToClick) {
         log('No target action found, skipping this item', 'warn');
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-        await sleep(800);
+        await sleep(500);
         stats.skipped++;
         stats.total++;
         updateStats();
@@ -415,7 +394,7 @@ async function processSingleItem(menuButton) {
 
       // Click the selected menu item
       menuItemToClick.click();
-      await sleep(1000);
+      await sleep(800);
 
       log('Looking for confirmation modal...', 'info');
 
@@ -478,9 +457,9 @@ async function processSingleItem(menuButton) {
           }
         } else {
           // No modal found - check if the page content changed indicating a successful deletion
-          await sleep(1000);
+          await sleep(settings.timing.noModalWait);
           const elementCountAfter = document.querySelectorAll(
-            'div[aria-label="More options"]:not(.permanent-tag):not(.permanent-profile-change)'
+            'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
           ).length;
           const urlAfter = window.location.href;
 
@@ -534,7 +513,7 @@ async function processSingleItem(menuButton) {
             document.dispatchEvent(
               new KeyboardEvent('keydown', { key: 'Escape' })
             );
-            await sleep(500);
+            await sleep(300);
 
             // Try clicking the menu button again
             try {
@@ -578,7 +557,7 @@ async function processSingleItem(menuButton) {
               document.dispatchEvent(
                 new KeyboardEvent('keydown', { key: 'Escape' })
               );
-              await sleep(500);
+              await sleep(300);
             }
           }
 
@@ -593,7 +572,7 @@ async function processSingleItem(menuButton) {
         log(`Error handling modal: ${modalError.message}`, 'error');
         // Try Escape to close any open dialogs
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-        await sleep(800);
+        await sleep(500);
         stats.failed++;
         stats.total++;
         updateStats();
@@ -601,7 +580,7 @@ async function processSingleItem(menuButton) {
     } else {
       log('No menu items found, closing menu...', 'warn');
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-      await sleep(800);
+      await sleep(500);
       stats.failed++;
       stats.total++;
       updateStats();
