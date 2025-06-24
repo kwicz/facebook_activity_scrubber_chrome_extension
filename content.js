@@ -38,6 +38,7 @@ document.head.appendChild(style);
 // --- Global State ---
 let isRunning = false;
 let isPaused = false;
+let wasRunningBeforeRefresh = false;
 let settings = {
   activityType: 'all',
   timeRange: 'all',
@@ -68,6 +69,135 @@ const stats = {
 let consecutiveFailures = 0;
 let pageRefreshes = 0;
 const errorTypes = {}; // Track different types of errors
+
+// Check if we were running before a refresh and resume if needed
+window.addEventListener('load', async () => {
+  // Wait a moment for the page to fully load
+  await sleep(2000);
+
+  try {
+    // Check if cleaning was in progress before refresh
+    const result = await chrome.storage.local.get([
+      'isRunning',
+      'cleanerSettings',
+      'cleanerStats',
+      'pageRefreshes',
+      'consecutiveFailures',
+      'refreshTimestamp',
+    ]);
+
+    if (result.isRunning && result.cleanerSettings) {
+      // Check if the refresh was recent (within last 30 seconds) to avoid false positives
+      const timeSinceRefresh = Date.now() - (result.refreshTimestamp || 0);
+      if (timeSinceRefresh < 30000) {
+        log(
+          'Detected page refresh during cleaning process. Resuming...',
+          'info'
+        );
+        wasRunningBeforeRefresh = true;
+
+        // Restore settings and stats
+        settings = { ...settings, ...result.cleanerSettings };
+        if (result.cleanerStats) {
+          Object.assign(stats, result.cleanerStats);
+        }
+
+        // Restore additional state variables
+        if (typeof result.pageRefreshes === 'number') {
+          pageRefreshes = result.pageRefreshes;
+        }
+        if (typeof result.consecutiveFailures === 'number') {
+          consecutiveFailures = result.consecutiveFailures;
+        }
+
+        // Notify user that cleaning is resuming
+        updateStatusMessage('Resuming cleaning after page refresh...');
+
+        // Show a notification to indicate the process is continuing
+        showResumeNotification();
+
+        // Resume cleaning after a short delay
+        setTimeout(() => {
+          isRunning = true;
+          isPaused = false;
+
+          // Update badge to show cleaning is active
+          updateExtensionBadge();
+
+          processNextBatch();
+        }, 3000);
+      } else {
+        // Old refresh timestamp, clear the running state
+        await chrome.storage.local.set({ isRunning: false });
+      }
+    }
+  } catch (error) {
+    log(`Error checking post-refresh state: ${error.message}`, 'error');
+  }
+});
+
+// Function to show a visual notification that cleaning has resumed
+function showResumeNotification() {
+  // Create a notification element
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #4CAF50;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 10000;
+    max-width: 350px;
+    border-left: 4px solid #45a049;
+  `;
+
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="font-size: 18px;">🔄</div>
+      <div>
+        <div style="font-weight: 600; margin-bottom: 2px;">Facebook Activity Scrubber</div>
+        <div style="opacity: 0.9; font-size: 13px;">Cleaning resumed after page refresh</div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(notification);
+
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.remove();
+    }
+  }, 5000);
+}
+
+// Function to store state before page refresh
+async function storeStateBeforeRefresh() {
+  try {
+    // Update stats with current progress
+    stats.pageRefreshes = pageRefreshes;
+
+    // Store current state in Chrome storage
+    await chrome.storage.local.set({
+      isRunning: true,
+      cleanerSettings: settings,
+      cleanerStats: stats,
+      pageRefreshes: pageRefreshes,
+      consecutiveFailures: consecutiveFailures,
+      refreshTimestamp: Date.now(),
+    });
+
+    log('State stored before page refresh', 'info');
+  } catch (error) {
+    log(`Error storing state before refresh: ${error.message}`, 'error');
+  }
+}
 
 // --- Utility Functions ---
 function sleep(ms) {
@@ -186,44 +316,96 @@ async function processNextBatch() {
 
   while (!noMoreItems && isRunning && !isPaused) {
     try {
-      // Find all menu buttons
+      // Find all menu buttons (excluding permanent ones)
       const menuButtons = document.querySelectorAll(
         'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
+      );
+
+      // Also check if there are any permanent posts to distinguish between "no posts at all" vs "only permanent posts"
+      const permanentButtons = document.querySelectorAll(
+        'div[aria-label="More options"].fas-permanent-tag, div[aria-label="More options"].fas-permanent-profile-change'
       );
 
       await sleep(600);
 
       if (menuButtons.length === 0) {
-        consecutiveFailures++;
-        log(
-          `No menu buttons found. Attempt ${consecutiveFailures}/${settings.maxConsecutiveFailures}`,
-          'warn'
-        );
+        // Check if we have permanent posts - if so, we know there are posts but they're all permanent
+        if (permanentButtons.length > 0) {
+          log(
+            `Found ${permanentButtons.length} permanent posts but no processable posts. Trying to scroll for more content...`,
+            'info'
+          );
 
-        if (consecutiveFailures >= settings.maxConsecutiveFailures) {
-          // Try refreshing the page if no menu buttons are found
-          if (pageRefreshes < settings.maxPageRefreshes) {
-            pageRefreshes++;
-            stats.pageRefreshes = pageRefreshes;
-            consecutiveFailures = 0;
-            updateStatusMessage(
-              `Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`
-            );
-            window.location.reload();
-            return;
+          // Try scrolling first to see if we can load more content
+          const scrollSuccess = await scrollForMoreItems();
+
+          if (scrollSuccess) {
+            // If scrolling loaded new content, continue the loop to check for new posts
+            await sleep(settings.timing.pageLoad);
+            continue;
           } else {
-            updateStatusMessage(
-              'Reached maximum page refreshes. No more items to delete.'
+            // Scrolling didn't work, try refreshing the page immediately (only 1 attempt for permanent posts)
+            log(
+              'No new content from scrolling with permanent posts present. Refreshing page...',
+              'warn'
             );
-            finishCleaning();
-            return;
-          }
-        }
 
-        // Try scrolling for more content before refreshing
-        await scrollForMoreItems();
-        await sleep(settings.timing.pageLoad);
-        continue;
+            if (pageRefreshes < settings.maxPageRefreshes) {
+              pageRefreshes++;
+              stats.pageRefreshes = pageRefreshes;
+              consecutiveFailures = 0; // Reset since we're refreshing
+              updateStatusMessage(
+                `Only permanent posts found. Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`
+              );
+
+              // Store state before refresh so we can resume after
+              await storeStateBeforeRefresh();
+              window.location.reload();
+              return;
+            } else {
+              updateStatusMessage(
+                'Reached maximum page refreshes. Only permanent posts remain.'
+              );
+              finishCleaning();
+              return;
+            }
+          }
+        } else {
+          // No posts at all (neither regular nor permanent) - allow 3 scroll attempts
+          consecutiveFailures++;
+          log(
+            `No menu buttons found at all. Attempt ${consecutiveFailures}/3`,
+            'warn'
+          );
+
+          if (consecutiveFailures >= 3) {
+            // Try refreshing the page if no menu buttons are found after 3 attempts
+            if (pageRefreshes < settings.maxPageRefreshes) {
+              pageRefreshes++;
+              stats.pageRefreshes = pageRefreshes;
+              consecutiveFailures = 0;
+              updateStatusMessage(
+                `Refreshing page to find more items. Refresh attempt ${pageRefreshes}/${settings.maxPageRefreshes}`
+              );
+
+              // Store state before refresh so we can resume after
+              await storeStateBeforeRefresh();
+              window.location.reload();
+              return;
+            } else {
+              updateStatusMessage(
+                'Reached maximum page refreshes. No more items to delete.'
+              );
+              finishCleaning();
+              return;
+            }
+          }
+
+          // Try scrolling for more content before refreshing
+          await scrollForMoreItems();
+          await sleep(settings.timing.pageLoad);
+          continue;
+        }
       }
 
       // Reset consecutive failures counter if we found items
@@ -598,17 +780,31 @@ async function processSingleItem(menuButton) {
 
 async function scrollForMoreItems() {
   const previousHeight = document.body.scrollHeight;
+  const previousMenuButtonCount = document.querySelectorAll(
+    'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
+  ).length;
 
-  // Try scrolling a couple of times
-  for (let i = 0; i < 2; i++) {
-    window.scrollBy(0, 500);
-    log(`Scroll attempt ${i + 1}/2 completed`, 'info');
-    await sleep(800);
+  log('Attempting to scroll for more content...', 'info');
 
-    if (document.body.scrollHeight > previousHeight) {
-      log('New content loaded after scrolling', 'info');
-      return true;
-    }
+  // Try scrolling to the bottom to trigger infinite scroll
+  window.scrollTo(0, document.body.scrollHeight);
+  await sleep(1500); // Wait for potential lazy loading
+
+  // Check if new content was loaded
+  const newHeight = document.body.scrollHeight;
+  const newMenuButtonCount = document.querySelectorAll(
+    'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
+  ).length;
+
+  if (
+    newHeight > previousHeight ||
+    newMenuButtonCount > previousMenuButtonCount
+  ) {
+    log(
+      `New content loaded after scrolling. Height: ${previousHeight} -> ${newHeight}, Menu buttons: ${previousMenuButtonCount} -> ${newMenuButtonCount}`,
+      'info'
+    );
+    return true;
   }
 
   log('No new content found after scrolling', 'warn');
@@ -641,6 +837,27 @@ async function finishCleaning() {
 
   const finalMessage = `Cleaning completed: ${stats.deleted} deleted, ${stats.failed} failed, ${stats.skipped} skipped`;
   updateStatusMessage(finalMessage);
+
+  // Clear the badge when cleaning is finished
+  try {
+    chrome.runtime.sendMessage({
+      action: 'updateBadge',
+      text: '',
+      color: '#4CAF50',
+    });
+  } catch (error) {
+    // Ignore if background script is not available
+  }
+
+  // Clear the running state from storage
+  try {
+    await chrome.storage.local.set({
+      isRunning: false,
+      refreshTimestamp: null,
+    });
+  } catch (error) {
+    log(`Error clearing running state: ${error.message}`, 'error');
+  }
 
   log('===== FACEBOOK ACTIVITY DELETION COMPLETED =====', 'success');
   log(`Items deleted: ${stats.deleted}`, 'success');
@@ -714,3 +931,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
+
+// Function to update extension badge
+function updateExtensionBadge() {
+  try {
+    chrome.runtime.sendMessage({
+      action: 'updateBadge',
+      text: '🔄',
+      color: '#4CAF50',
+    });
+  } catch (error) {
+    // Ignore if popup/background is not available
+  }
+}

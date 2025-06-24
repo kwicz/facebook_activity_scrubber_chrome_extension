@@ -250,6 +250,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }, 100);
 
     return true; // Indicate we'll send a response asynchronously
+  } else if (message.action === 'updateBadge') {
+    // Update extension badge
+    chrome.action.setBadgeText({
+      text: message.text || '',
+    });
+
+    if (message.color) {
+      chrome.action.setBadgeBackgroundColor({
+        color: message.color,
+      });
+    }
+
+    if (sendResponse) {
+      sendResponse({ success: true });
+    }
   }
 });
 
