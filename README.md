@@ -2,6 +2,8 @@
 
 A Chrome extension that helps you clean up your Facebook activity log by automating the deletion of posts, comments, likes, and other activities from your Facebook profile. This extension provides a convenient browser-based interface to manage your digital footprint on Facebook.
 
+Available on the [Chrome Web Store](https://chromewebstore.google.com/detail/facebook-activity-scrubbe/dkbcfnpgaiodmfahkfglnpeldacahgbc?authuser=0&hl=en)
+
 ![Facebook Activity Scrubber in Action](assets/3.jpg)
 
 _Facebook Activity Scrubber interface showing the extension in action_
@@ -29,13 +31,18 @@ This Chrome extension helps you delete activities from your Facebook activity lo
 
 ## Installation
 
-1. **Download or clone this repository**:
+1. **Download from Chrome Web Store**:
+
+   - Visit our [Chrome Web Store page](https://chromewebstore.google.com/detail/facebook-activity-scrubbe/dkbcfnpgaiodmfahkfglnpeldacahgbc?authuser=0&hl=en)
+   - Click "Add to Chrome" to install the extension
+   - The Facebook Activity Scrubber extension icon should now appear in your browser toolbar
+
+2. **Alternative: Manual Installation**:
 
    ```bash
    git clone https://github.com/your-username/facebook-activity-scrubber.git
    ```
 
-2. **Install the Chrome extension**:
    - Open Chrome and navigate to `chrome://extensions/`
    - Enable "Developer mode" by toggling the switch in the top right corner
    - Click "Load unpacked" button
