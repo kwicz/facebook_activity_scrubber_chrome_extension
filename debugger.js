@@ -11,7 +11,6 @@ class FBCleanerDebugger {
   // Initialize the debug tools
   init() {
     if (this.isInitialized) {
-      this.show();
       return;
     }
 
@@ -19,7 +18,9 @@ class FBCleanerDebugger {
     this.setupEventListeners();
     this.interceptLogging();
     this.isInitialized = true;
-    this.log('Debug panel initialized', 'info');
+    this.log('Debug panel initialized but hidden by default', 'info');
+    // Hide panel by default
+    this.hide();
   }
 
   // Create the debug panel UI
@@ -295,6 +296,7 @@ class FBCleanerDebugger {
   toggle() {
     if (!this.isInitialized) {
       this.init();
+      this.show(); // Show panel when toggled via keyboard shortcut
     } else if (this.debugPanel) {
       if (this.debugPanel.style.display === 'none') {
         this.show();
@@ -331,7 +333,7 @@ function enableDebugPanel() {
   if (!window.fbCleanerDebugger.isInitialized) {
     window.fbCleanerDebugger.init();
     console.log(
-      '🔧 Debug panel enabled. Press Ctrl+Shift+D to toggle visibility.'
+      '🔧 Debug panel initialized but hidden by default. Press Ctrl+Shift+D to toggle visibility.'
     );
   } else {
     window.fbCleanerDebugger.show();

@@ -980,9 +980,10 @@ function updateExtensionBadge() {
         window.enableDebugPanel &&
         typeof window.enableDebugPanel === 'function'
       ) {
-        // Small delay to ensure debugger is ready
+        // Initialize but do not show the debug panel by default
         setTimeout(() => {
           window.enableDebugPanel();
+          // Panel will remain hidden because we modified enableDebugPanel() not to show it by default
         }, 1500);
       }
     });

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Facebook Activity Scrubber",
-  "version": "1.0",
+  "version": "1.1.0",
   "description": "Bulk delete your Facebook posts, comments, and activity history to protect your privacy and reduce your digital footprint.",
   "permissions": ["scripting", "storage", "activeTab", "contextMenus"],
   "host_permissions": ["https://*.facebook.com/*"],
