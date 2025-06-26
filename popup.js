@@ -253,61 +253,21 @@ document.addEventListener('DOMContentLoaded', function () {
   // Debug toggle button handler
   if (debugToggle) {
     debugToggle.addEventListener('click', function () {
-      console.log('Debug toggle clicked, current state:', debugEnabled);
-
       debugEnabled = !debugEnabled;
-
-      // Save debug state
       chrome.storage.local.set({ debugEnabled: debugEnabled });
-
-      // Update UI
       updateDebugToggleUI();
-
-      // Send message to content script to toggle debug panel
       chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         if (tabs && tabs[0]) {
-          console.log('Current tab URL:', tabs[0].url);
-
-          if (tabs[0].url.includes('facebook.com')) {
-            console.log('On Facebook, ensuring content script is injected...');
-
-            // Ensure content script is injected before sending message
-            ensureContentScriptInjected(tabs[0].id, function (success) {
-              if (success) {
-                console.log(
-                  'Content script ready, sending debug toggle message...'
-                );
-
-                chrome.tabs.sendMessage(
-                  tabs[0].id,
-                  {
-                    action: 'toggleDebug',
-                    enabled: debugEnabled,
-                  },
-                  function (response) {
-                    if (chrome.runtime.lastError) {
-                      console.error(
-                        'Debug toggle error:',
-                        chrome.runtime.lastError.message
-                      );
-                    } else {
-                      console.log('Debug toggle response:', response);
-                    }
-                  }
-                );
-              } else {
-                console.error(
-                  'Failed to inject content script for debug toggle'
-                );
-              }
-            });
-          } else {
-            console.log(
-              'Not on Facebook page, debug toggle only works on Facebook'
-            );
-          }
-        } else {
-          console.error('No active tab found');
+          chrome.tabs.sendMessage(
+            tabs[0].id,
+            {
+              action: 'toggleDebug',
+              enabled: debugEnabled,
+            },
+            function (response) {
+              // Optionally handle response
+            }
+          );
         }
       });
     });

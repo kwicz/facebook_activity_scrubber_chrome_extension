@@ -288,7 +288,7 @@ function extractActivityData(menuButton) {
 
 // --- Main Cleaning Logic ---
 async function startActivityCleaning() {
-  updateStatusMessage('Starting activity cleaning...');
+  updateStatusMessage('🧼 Scrub a dub dub 🧼');
 
   isRunning = true;
   isPaused = false;
@@ -528,7 +528,7 @@ async function processSingleItem(menuButton) {
         'Remove Reaction',
       ];
 
-      // Check if "Add to profile" is the only menu option (edge case)
+      // Check if "Add to profile" or "Hide from profile" is the only menu option (edge case)
       let hasOnlyAddToProfile = false;
       if (menuItems.length === 1) {
         const singleItemText = menuItems[0].textContent;
@@ -548,6 +548,56 @@ async function processSingleItem(menuButton) {
           stats.total++;
           updateStats();
           return false;
+        } else if (singleItemText.includes('Hide from profile')) {
+          log('Found menu with only "Hide from profile" option', 'warn');
+          // Try a robust click
+          menuItems[0].dispatchEvent(
+            new MouseEvent('mousedown', { bubbles: true })
+          );
+          menuItems[0].dispatchEvent(
+            new MouseEvent('mouseup', { bubbles: true })
+          );
+          menuItems[0].dispatchEvent(
+            new MouseEvent('click', { bubbles: true })
+          );
+          log('Clicked "Hide from profile" menu item', 'info');
+          // Wait for the menu to close or the item to be hidden
+          let menuClosed = false;
+          for (let i = 0; i < 10; i++) {
+            // up to 2 seconds
+            await sleep(200);
+            const stillOpen = document.querySelectorAll(
+              'div[role="menuitem"]'
+            ).length;
+            if (stillOpen === 0) {
+              menuClosed = true;
+              break;
+            }
+          }
+          if (menuClosed) {
+            // Add a custom permanent tag after confirming action
+            menuButton.classList.add('fas-permanent-profile-change');
+            menuButton.classList.add('fas-permanent');
+            // Set a custom tag message
+            menuButton.setAttribute(
+              'data-fas-permanent-message',
+              'Profile update has been hidden, but cannot be removed'
+            );
+            stats.deleted++;
+            stats.total++;
+            updateStats();
+            log('Hide from profile action confirmed and tagged.', 'success');
+            return true;
+          } else {
+            log(
+              'Hide from profile action did not succeed (menu did not close). Not tagging.',
+              'warn'
+            );
+            stats.skipped++;
+            stats.total++;
+            updateStats();
+            return false;
+          }
         }
       }
 
@@ -831,6 +881,7 @@ function log(message, type = 'info') {
   const timestamp = new Date().toLocaleTimeString();
   console.log(`[${timestamp}] [FB Cleaner] ${message}`);
 }
+window.log = log;
 
 async function finishCleaning() {
   isRunning = false;
