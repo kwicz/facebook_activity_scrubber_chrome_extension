@@ -52,8 +52,16 @@
 
       .logo h1 {
         color: #4267b2;
-        font-size: 28px;
+        font-size: 24px;
         font-weight: 700;
+        margin-bottom: 0;
+      }
+
+      .logo a {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 15px;
       }
 
       .back-link {
@@ -176,14 +184,89 @@
       <div class="container">
         <div class="header-content">
           <div class="logo">
-            <img
-              src="icons/icon.png"
-              alt="Facebook Activity Scrubber"
-              style="width: 32px; height: 32px"
-            />
-            <h1>Facebook Activity Scrubber</h1>
+            <a href="index.html">
+              <img
+                src="icons/icon.png"
+                alt="Facebook Activity Scrubber"
+                style="width: 32px; height: 32px"
+              />
+              <h1>Facebook Activity Scrubber</h1>
+            </a>
           </div>
-          <a href="index.html" class="back-link">← Back to Home</a>
+          <div
+            style="
+              display: flex;
+              gap: 15px;
+              align-items: center;
+              margin-left: auto;
+            "
+          >
+            <a
+              href="support.html"
+              style="
+                display: inline-flex;
+                color: #4267b2;
+                padding: 10px 15px;
+                text-decoration: none;
+                font-size: 14px;
+                font-weight: 600;
+                height: 39px;
+                align-items: center;
+                transition: all 0.3s ease;
+                border-radius: 8px;
+              "
+              onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 2px 10px rgba(66, 103, 178, 0.2)';this.style.background='rgba(66, 103, 178, 0.1)';"
+              onmouseout="this.style.transform='';this.style.boxShadow='none';this.style.background='transparent';"
+            >
+              Need Help?
+            </a>
+            <a
+              href="https://coff.ee/cxsdeveloper"
+              class="support-button"
+              style="
+                display: inline-flex;
+                background: transparent;
+                color: #4267b2;
+                padding: 10px 15px;
+                text-decoration: none;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                text-wrap: nowrap;
+                height: 39px;
+                align-items: center;
+                border: none;
+              "
+              target="_blank"
+              rel="noopener noreferrer"
+              onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 2px 10px rgba(66, 103, 178, 0.2)';this.style.background='rgba(66, 103, 178, 0.1)';"
+              onmouseout="this.style.transform='';this.style.boxShadow='none';this.style.background='transparent';"
+            >
+              ☕ Buy Me a Coffee
+            </a>
+            <a
+              href="https://chromewebstore.google.com/detail/facebook-activity-scrubbe/dkbcfnpgaiodmfahkfglnpeldacahgbc?authuser=0&hl=en"
+              class="cta-button"
+              style="
+                display: inline-flex;
+                background: #4267b2;
+                color: white;
+                padding: 10px 15px;
+                text-decoration: none;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(66, 103, 178, 0.3);
+                height: 39px;
+                align-items: center;
+              "
+              onmouseover="this.style.background='#365899';this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(66, 103, 178, 0.6)';"
+              onmouseout="this.style.background='#4267b2';this.style.transform='';this.style.boxShadow='0 4px 15px rgba(66, 103, 178, 0.3)';"
+              >Get Extension</a
+            >
+          </div>
         </div>
       </div>
     </header>
@@ -418,6 +501,20 @@
         </p>
         <p style="margin-top: 10px; font-size: 14px; opacity: 0.8">
           Your data, your choice, your privacy.
+        </p>
+        <p style="margin-top: 15px">
+          <a href="support.html" style="color: #ccc; text-decoration: none">
+            Get Support
+          </a>
+          <span style="color: #ccc; margin: 0 10px">|</span>
+          <a
+            href="https://coff.ee/cxsdeveloper"
+            style="color: #ccc; text-decoration: none"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Buy Me a Coffee
+          </a>
         </p>
       </div>
     </footer>
