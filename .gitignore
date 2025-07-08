@@ -2,3 +2,4 @@ node_modules/
 .env
 deletedActivity.json
 .DS_Store
+.cursor
