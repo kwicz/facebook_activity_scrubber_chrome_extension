@@ -378,88 +378,200 @@
         background: #10b981;
         opacity: 1;
       }
+
+      .btn:focus-visible,
+      .btn-secondary:focus-visible {
+        outline: 2px solid #1877f2;
+        outline-offset: 2px;
+        box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.25);
+        z-index: 1;
+      }
     </style>
   </head>
   <body>
-    <div class="container">
-      <div class="header">
-        <div class="logo">
-          <img src="/icons/icon.png" height="32" width="32""/>
-        </div>
-        <h1>Facebook Activity Scrubber</h1>
-        <p class="subtitle">
-          Clear out your entire Facebook history with a single click
-        </p>
-      </div>
-
-      <div class="step">
-        <div class="step-number">1</div>
-        <div class="step-title">Authentication</div>
-        <div class="step-content">
-          Please ensure you are logged into your Facebook account in your
-          browser before proceeding.
-        </div>
-      </div>
-
-      <div class="step">
-        <div class="step-number">2</div>
-        <div class="step-title">Navigate to Activity Page</div>
-        <div class="step-content">
-          <div class="field-info">
-            Go to your Facebook activity log to begin cleaning
-          </div>
-          <button id="viewActivityLog" class="btn btn-secondary">
-            Go to Activity Page
-          </button>
-        </div>
-      </div>
-
-      <div class="step">
-        <div class="step-number">3</div>
-        <div class="step-title">Start Cleaning</div>
-        <div class="step-content">
-          Begin the automated cleanup process for your Facebook activity.
-          <button id="startButton" style="margin-top: 6px" class="btn">
-            Start Cleaning Process
-          </button>
-        </div>
-      </div>
-
-      <div id="status" class="status">
-        Please navigate to your Facebook Activity Log to begin
-      </div>
-
-      <div class="stats">
-        <div class="stat-card stat-deleted">
-          <div class="stat-number" id="deletedCount">0</div>
-          <div class="stat-label">Cleaned</div>
-        </div>
-        <div class="stat-card stat-failed">
-          <div class="stat-number" id="failedCount">0</div>
-          <div class="stat-label">Skipped</div>
-        </div>
-      </div>
-
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-
-      <!-- Debug Panel Toggle -->
-      <div
-        class="debug-toggle"
-        style="margin-top: 8px; text-align: center; display: none"
+    <div
+      id="landingScreen"
+      class="container"
+      style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+      "
+    >
+      <h2 style="margin-bottom: 16px">What would you like to do?</h2>
+      <button id="btnDemonetize" class="btn" aria-label="Demonetize My Account">
+        Demonetize My Account
+      </button>
+      <button
+        id="btnScrub"
+        class="btn btn-secondary"
+        aria-label="Scrub My Facebook Activity"
+        style="margin-top: 12px"
       >
-        <button
-          id="debugToggle"
-          class="btn-debug"
-          style="display: inline-block"
-          title="Toggle Debug Panel"
-        >
-          Debug
-        </button>
-      </div>
+        Scrub My Facebook Activity
+      </button>
     </div>
 
+    <div
+      id="demonetizeContainer"
+      class="container"
+      style="
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+      "
+    >
+      <h2 style="margin-bottom: 12px">Demonetize My Account</h2>
+      <p
+        style="
+          font-size: 13px;
+          color: #4b5563;
+          margin-bottom: 18px;
+          text-align: center;
+        "
+      >
+        This feature will automatically update your Facebook ad settings to opt
+        out of ad partner activity and offsite data sharing.
+      </p>
+      <button
+        id="startDemonetize"
+        class="btn"
+        aria-label="Start Demonetization"
+      >
+        Start Demonetization
+      </button>
+      <div id="demonetizeProgress" style="width: 100%; margin-bottom: 18px">
+        <div class="step" id="demonetizeStep1">
+          <span class="icon" id="demonetizeStep1Icon">⏳</span>
+          <span>Opt out of ad partner activity</span>
+        </div>
+        <div class="step" id="demonetizeStep2">
+          <span class="icon" id="demonetizeStep2Icon">⏳</span>
+          <span>Opt out of ads from ad partners</span>
+        </div>
+        <div class="step" id="demonetizeStep3">
+          <span class="icon" id="demonetizeStep3Icon">⏳</span>
+          <span>Disconnect future activity</span>
+        </div>
+      </div>
+      <div
+        id="demonetizeStatus"
+        class="status"
+        style="margin-top: 18px; display: none"
+      ></div>
+      <button
+        id="demonetizeRetry"
+        class="btn btn-secondary"
+        style="margin-top: 12px; display: none"
+      >
+        Retry
+      </button>
+      <canvas
+        id="confettiCanvas"
+        style="
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          pointer-events: none;
+          z-index: 9999;
+          display: none;
+        "
+      ></canvas>
+      <button
+        id="demonetizeDone"
+        class="btn"
+        style="margin-top: 18px; display: none"
+      >
+        Done
+      </button>
+    </div>
+
+    <div id="featureContainer" style="display: none">
+      <div class="container">
+        <div class="header">
+          <div class="logo">
+            <img src="/icons/icon.png" height="32" width="32""/>
+          </div>
+          <h1>Facebook Activity Scrubber</h1>
+          <p class="subtitle">
+            Clear out your entire Facebook history with a single click
+          </p>
+        </div>
+
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-title">Authentication</div>
+          <div class="step-content">
+            Please ensure you are logged into your Facebook account in your
+            browser before proceeding.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-title">Navigate to Activity Page</div>
+          <div class="step-content">
+            <div class="field-info">
+              Go to your Facebook activity log to begin cleaning
+            </div>
+            <button id="viewActivityLog" class="btn btn-secondary">
+              Go to Activity Page
+            </button>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-title">Start Cleaning</div>
+          <div class="step-content">
+            Begin the automated cleanup process for your Facebook activity.
+            <button id="startButton" style="margin-top: 6px" class="btn">
+              Start Cleaning Process
+            </button>
+          </div>
+        </div>
+
+        <div id="status" class="status">
+          Please navigate to your Facebook Activity Log to begin
+        </div>
+
+        <div class="stats">
+          <div class="stat-card stat-deleted">
+            <div class="stat-number" id="deletedCount">0</div>
+            <div class="stat-label">Cleaned</div>
+          </div>
+          <div class="stat-card stat-failed">
+            <div class="stat-number" id="failedCount">0</div>
+            <div class="stat-label">Skipped</div>
+          </div>
+        </div>
+
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <!-- Debug Panel Toggle -->
+        <div
+          class="debug-toggle"
+          style="margin-top: 8px; text-align: center; display: none"
+        >
+          <button
+            id="debugToggle"
+            class="btn-debug"
+            style="display: inline-block"
+            title="Toggle Debug Panel"
+          >
+            Debug
+          </button>
+        </div>
+      </div>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>

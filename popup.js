@@ -10,12 +10,225 @@ let stats = {
 
 // DOM elements
 document.addEventListener('DOMContentLoaded', function () {
+  const landingScreen = document.getElementById('landingScreen');
+  const featureContainer = document.getElementById('featureContainer');
+  const btnDemonetize = document.getElementById('btnDemonetize');
+  const btnScrub = document.getElementById('btnScrub');
   const startButton = document.getElementById('startButton');
   const viewActivityLogButton = document.getElementById('viewActivityLog');
   const statusElement = document.getElementById('status');
   const step2 = document.querySelector('.step:nth-child(2)');
   const step3 = document.querySelector('.step:nth-child(3)');
   const debugToggle = document.getElementById('debugToggle');
+  const demonetizeContainer = document.getElementById('demonetizeContainer');
+  const demonetizeStatus = document.getElementById('demonetizeStatus');
+  const startDemonetize = document.getElementById('startDemonetize');
+  const demonetizeRetry = document.getElementById('demonetizeRetry');
+  const confettiCanvas = document.getElementById('confettiCanvas');
+  const demonetizeDone = document.getElementById('demonetizeDone');
+
+  if (landingScreen && featureContainer && demonetizeContainer) {
+    landingScreen.style.display = 'flex';
+    featureContainer.style.display = 'none';
+    demonetizeContainer.style.display = 'none';
+  }
+
+  if (btnDemonetize) {
+    btnDemonetize.addEventListener('click', function () {
+      landingScreen.style.display = 'none';
+      featureContainer.style.display = 'none';
+      demonetizeContainer.style.display = 'flex';
+      if (demonetizeStatus) demonetizeStatus.style.display = 'none';
+    });
+  }
+
+  if (btnScrub) {
+    btnScrub.addEventListener('click', function () {
+      landingScreen.style.display = 'none';
+      featureContainer.style.display = 'block';
+      demonetizeContainer.style.display = 'none';
+      if (demonetizeStatus) demonetizeStatus.style.display = 'none';
+    });
+  }
+
+  function showRetryButton() {
+    if (demonetizeRetry) demonetizeRetry.style.display = 'block';
+  }
+  function hideRetryButton() {
+    if (demonetizeRetry) demonetizeRetry.style.display = 'none';
+  }
+
+  if (demonetizeRetry) {
+    demonetizeRetry.addEventListener('click', function () {
+      hideRetryButton();
+      if (startDemonetize) startDemonetize.click();
+    });
+  }
+
+  function showConfetti() {
+    if (!confettiCanvas) return;
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+    confettiCanvas.style.display = 'block';
+    const ctx = confettiCanvas.getContext('2d');
+    const confettiCount = 120;
+    const confetti = [];
+    for (let i = 0; i < confettiCount; i++) {
+      confetti.push({
+        x: Math.random() * confettiCanvas.width,
+        y: Math.random() * -confettiCanvas.height,
+        r: Math.random() * 6 + 4,
+        d: Math.random() * confettiCount,
+        color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+        tilt: Math.random() * 10 - 10,
+        tiltAngle: 0,
+        tiltAngleIncremental: Math.random() * 0.07 + 0.05,
+      });
+    }
+    let angle = 0;
+    let animationFrame;
+    function drawConfetti() {
+      ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      angle += 0.01;
+      for (let i = 0; i < confetti.length; i++) {
+        let c = confetti[i];
+        c.y += (Math.cos(angle + c.d) + 3 + c.r / 2) * 0.7;
+        c.x += Math.sin(angle);
+        c.tiltAngle += c.tiltAngleIncremental;
+        c.tilt = Math.sin(c.tiltAngle) * 15;
+        ctx.beginPath();
+        ctx.lineWidth = c.r;
+        ctx.strokeStyle = c.color;
+        ctx.moveTo(c.x + c.tilt + c.r / 3, c.y);
+        ctx.lineTo(c.x + c.tilt, c.y + c.tilt + c.r);
+        ctx.stroke();
+      }
+      animationFrame = requestAnimationFrame(drawConfetti);
+    }
+    drawConfetti();
+    setTimeout(() => {
+      cancelAnimationFrame(animationFrame);
+      ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      confettiCanvas.style.display = 'none';
+    }, 2500);
+  }
+
+  function showDoneButton() {
+    if (demonetizeDone) demonetizeDone.style.display = 'block';
+  }
+  function hideDoneButton() {
+    if (demonetizeDone) demonetizeDone.style.display = 'none';
+  }
+  if (demonetizeDone) {
+    demonetizeDone.addEventListener('click', function () {
+      hideDoneButton();
+      if (confettiCanvas) confettiCanvas.style.display = 'none';
+      // Return to landing screen
+      if (landingScreen && demonetizeContainer) {
+        landingScreen.style.display = 'flex';
+        demonetizeContainer.style.display = 'none';
+      }
+    });
+  }
+
+  function updateDemonetizeProgress(step, status) {
+    const icons = {
+      pending: '⏳',
+      inprogress: '🔄',
+      done: '✅',
+      error: '❌',
+    };
+    for (let i = 1; i <= 3; i++) {
+      const iconEl = document.getElementById(`demonetizeStep${i}Icon`);
+      if (iconEl) {
+        if (i < step) {
+          iconEl.textContent = icons.done;
+        } else if (i === step) {
+          iconEl.textContent = icons[status] || icons.inprogress;
+        } else {
+          iconEl.textContent = icons.pending;
+        }
+      }
+    }
+    // Inline status message
+    if (demonetizeStatus) {
+      if (status === 'inprogress') {
+        demonetizeStatus.textContent = `Setting ${step} of 3 updated`;
+        demonetizeStatus.style.display = 'block';
+      }
+    }
+  }
+
+  if (startDemonetize && demonetizeStatus) {
+    startDemonetize.addEventListener('click', function () {
+      demonetizeStatus.textContent = 'Starting demonetization process...';
+      demonetizeStatus.style.display = 'block';
+      hideRetryButton();
+      hideDoneButton();
+      updateDemonetizeProgress(1, 'inprogress');
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        const activeTab = tabs[0];
+        if (
+          activeTab &&
+          activeTab.url &&
+          activeTab.url.includes('facebook.com')
+        ) {
+          chrome.tabs.sendMessage(
+            activeTab.id,
+            { action: 'startDemonetize' },
+            function (response) {
+              if (chrome.runtime.lastError) {
+                demonetizeStatus.textContent =
+                  'Could not communicate with Facebook tab. Please make sure you are on Facebook.';
+                updateDemonetizeProgress(1, 'error');
+                showRetryButton();
+              } else if (response && response.status) {
+                demonetizeStatus.textContent = response.status;
+                // Update progress based on response
+                if (
+                  response.status.includes(
+                    'Ad partner activity preference updated'
+                  )
+                ) {
+                  updateDemonetizeProgress(2, 'inprogress');
+                } else if (
+                  response.status.includes(
+                    'Ads from ad partners opt-out complete'
+                  )
+                ) {
+                  updateDemonetizeProgress(3, 'inprogress');
+                } else if (
+                  response.status.includes('Future activity disconnected')
+                ) {
+                  updateDemonetizeProgress(3, 'done');
+                  showConfetti();
+                  showDoneButton();
+                } else if (response.status.includes('Error')) {
+                  // Try to infer which step failed
+                  if (response.status.includes('ad partner')) {
+                    updateDemonetizeProgress(1, 'error');
+                  } else if (response.status.includes('ads from ad partners')) {
+                    updateDemonetizeProgress(2, 'error');
+                  } else if (response.status.includes('future activity')) {
+                    updateDemonetizeProgress(3, 'error');
+                  }
+                  showRetryButton();
+                }
+              } else {
+                demonetizeStatus.textContent =
+                  'Demonetization process started.';
+              }
+            }
+          );
+        } else {
+          demonetizeStatus.textContent =
+            'Please open Facebook in a tab and try again.';
+          updateDemonetizeProgress(1, 'error');
+          showRetryButton();
+        }
+      });
+    });
+  }
 
   // Check page status immediately
   checkPageStatus();

@@ -1006,6 +1006,276 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     }
     return true;
+  } else if (message.action === 'startDemonetize') {
+    (async () => {
+      log('Demonetization: Starting demonetization process...', 'info');
+      updateStatusMessage('Starting demonetization process...');
+      // --- Step 1: Ad partner activity (updated flow) ---
+      try {
+        log(
+          'Demonetization: Navigating to Accounts Center Ads page...',
+          'info'
+        );
+        updateStatusMessage('Navigating to Accounts Center Ads page...');
+        window.location.href = 'https://accountscenter.facebook.com/ads';
+        await sleep(3500);
+        // Step 2: Click the span that says "Manage Info"
+        let manageInfoSpan = null;
+        for (let i = 0; i < 10; i++) {
+          manageInfoSpan = Array.from(document.querySelectorAll('span')).find(
+            (el) => el.textContent && el.textContent.match(/Manage Info/i)
+          );
+          if (manageInfoSpan) break;
+          await sleep(700);
+        }
+        if (!manageInfoSpan)
+          throw new Error('Could not find "Manage Info" span');
+        manageInfoSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await sleep(300);
+        manageInfoSpan.click();
+        log('Clicked "Manage Info"', 'info');
+        await sleep(1500);
+        // Step 3: Click the div that says "Activity information from ad partners"
+        let activityDiv = null;
+        for (let i = 0; i < 10; i++) {
+          activityDiv = Array.from(document.querySelectorAll('div')).find(
+            (el) =>
+              el.textContent &&
+              el.textContent.match(/Activity information from ad partners/i)
+          );
+          if (activityDiv) break;
+          await sleep(700);
+        }
+        if (!activityDiv)
+          throw new Error(
+            'Could not find "Activity information from ad partners" div'
+          );
+        activityDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await sleep(300);
+        activityDiv.click();
+        log('Clicked "Activity information from ad partners"', 'info');
+        await sleep(1500);
+        // Step 4: In the modal with role="dialog", click the <button>
+        let dialog = null;
+        for (let i = 0; i < 10; i++) {
+          dialog = document.querySelector('div[role="dialog"]');
+          if (dialog) break;
+          await sleep(700);
+        }
+        if (!dialog) throw new Error('Could not find dialog modal');
+        const dialogButton = dialog.querySelector('button');
+        if (!dialogButton) throw new Error('Could not find button in dialog');
+        dialogButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await sleep(300);
+        dialogButton.click();
+        log('Clicked button in dialog', 'info');
+        await sleep(1000);
+        // Step 5: Click the <input> with name="radio2"
+        let radio2 = null;
+        for (let i = 0; i < 10; i++) {
+          radio2 = dialog.querySelector('input[name="radio2"]');
+          if (radio2) break;
+          await sleep(700);
+        }
+        if (!radio2)
+          throw new Error('Could not find input[name="radio2"] in dialog');
+        radio2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await sleep(300);
+        radio2.click();
+        log('Clicked radio2 input (opt-out)', 'info');
+        updateStatusMessage('Ad partner activity preference updated!');
+        log(
+          'Demonetization: Ad partner activity preference updated!',
+          'success'
+        );
+      } catch (err) {
+        log(
+          'Demonetization: Error during ad partner activity step: ' +
+            err.message,
+          'error'
+        );
+        updateStatusMessage('Error during demonetization: ' + err.message);
+      }
+      // --- Step 2: Ads from ad partners ---
+      try {
+        log(
+          'Demonetization: Navigating to Ads from ad partners settings...',
+          'info'
+        );
+        updateStatusMessage('Navigating to Ads from ad partners settings...');
+        window.location.href =
+          'https://www.facebook.com/adpreferences/ad_settings/partner_ads';
+        await sleep(3500);
+        log(
+          'Demonetization: Looking for “Don’t show me ads from ad partners” option...',
+          'info'
+        );
+        updateStatusMessage(
+          'Looking for “Don’t show me ads from ad partners” option...'
+        );
+        let found = false;
+        let attempts = 0;
+        while (!found && attempts < 10) {
+          const labels2 = Array.from(
+            document.querySelectorAll('label, span, div')
+          );
+          const dontShowLabel = labels2.find(
+            (el) =>
+              el.textContent &&
+              el.textContent.match(
+                /Don’t show me ads from ad partners|Don't show me ads from ad partners|Do not show me ads from ad partners/i
+              )
+          );
+          if (dontShowLabel) {
+            log('Demonetization: Opt-out option found, clicking...', 'info');
+            dontShowLabel.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+            await sleep(400);
+            dontShowLabel.click();
+            found = true;
+            updateStatusMessage('Opt-out option selected. Closing modal...');
+            await sleep(1200);
+            const closeBtn = labels2.find(
+              (el) =>
+                el.textContent && el.textContent.match(/Close|Done|Save|OK/i)
+            );
+            if (closeBtn) {
+              log(
+                'Demonetization: Close/Done/Save button found, clicking...',
+                'info'
+              );
+              closeBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              await sleep(300);
+              closeBtn.click();
+              updateStatusMessage('Ads from ad partners opt-out complete!');
+              log(
+                'Demonetization: Ads from ad partners opt-out complete!',
+                'success'
+              );
+            } else {
+              log(
+                'Demonetization: Opt-out selected, but could not find Close/Done/Save button.',
+                'warn'
+              );
+              updateStatusMessage(
+                'Opt-out selected, but could not find Close/Done/Save button. Please check manually.'
+              );
+            }
+            break;
+          }
+          await sleep(1000);
+          attempts++;
+        }
+        if (!found) {
+          log(
+            'Demonetization: Could not find the opt-out option for ads from ad partners. Facebook may have changed their UI.',
+            'error'
+          );
+          updateStatusMessage(
+            'Could not find the opt-out option for ads from ad partners. Facebook may have changed their UI.'
+          );
+        }
+      } catch (err) {
+        log(
+          'Demonetization: Error during ads from ad partners step: ' +
+            err.message,
+          'error'
+        );
+        updateStatusMessage('Error during demonetization: ' + err.message);
+      }
+      // --- Step 3: Future activity disconnect ---
+      try {
+        log('Demonetization: Navigating to Manage Future Activity...', 'info');
+        updateStatusMessage('Navigating to Manage Future Activity...');
+        window.location.href =
+          'https://www.facebook.com/off_facebook_activity/manage_future_activity/';
+        await sleep(3500);
+        log(
+          'Demonetization: Looking for “Disconnect future activity” button...',
+          'info'
+        );
+        updateStatusMessage(
+          'Looking for “Disconnect future activity” button...'
+        );
+        let found = false;
+        let attempts = 0;
+        while (!found && attempts < 10) {
+          const labels3 = Array.from(
+            document.querySelectorAll('label, span, div, button')
+          );
+          const disconnectBtn = labels3.find(
+            (el) =>
+              el.textContent &&
+              el.textContent.match(
+                /Disconnect future activity|Turn off future activity|Manage Future Activity|Disconnect|Turn Off/i
+              )
+          );
+          if (disconnectBtn) {
+            log('Demonetization: Disconnect button found, clicking...', 'info');
+            disconnectBtn.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+            await sleep(400);
+            disconnectBtn.click();
+            found = true;
+            updateStatusMessage('Disconnect option selected. Confirming...');
+            await sleep(1200);
+            const confirmBtn = labels3.find(
+              (el) =>
+                el.textContent &&
+                el.textContent.match(/Confirm|Turn Off|Done|OK/i)
+            );
+            if (confirmBtn) {
+              log(
+                'Demonetization: Confirm/Done button found, clicking...',
+                'info'
+              );
+              confirmBtn.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+              await sleep(300);
+              confirmBtn.click();
+              updateStatusMessage('Future activity disconnected!');
+              log('Demonetization: Future activity disconnected!', 'success');
+            } else {
+              log(
+                'Demonetization: Disconnect selected, but could not find Confirm/Done button.',
+                'warn'
+              );
+              updateStatusMessage(
+                'Disconnect selected, but could not find Confirm/Done button. Please check manually.'
+              );
+            }
+            break;
+          }
+          await sleep(1000);
+          attempts++;
+        }
+        if (!found) {
+          log(
+            'Demonetization: Could not find the disconnect option for future activity. Facebook may have changed their UI.',
+            'error'
+          );
+          updateStatusMessage(
+            'Could not find the disconnect option for future activity. Facebook may have changed their UI.'
+          );
+        }
+      } catch (err) {
+        log(
+          'Demonetization: Error during future activity disconnect: ' +
+            err.message,
+          'error'
+        );
+        updateStatusMessage(
+          'Error during future activity disconnect: ' + err.message
+        );
+      }
+    })();
+    return true;
   }
 });
 
