@@ -175,6 +175,8 @@
         transform: none;
         box-shadow: none;
         opacity: 0.6;
+        color: #fff;
+        border: none;
       }
 
       .btn-secondary {
@@ -332,7 +334,8 @@
         animation: shake 0.5s ease-in-out;
       }
 
-      .btn-warning::before {
+      .btn-warning::before,
+      .btn.bounce::before {
         content: '';
         position: absolute;
         top: 0;
@@ -369,7 +372,6 @@
         text-align: center;
         margin-top: 12px;
         padding-top: 12px;
-        border-top: 1px solid #e5e7eb;
         flex-shrink: 0;
       }
 

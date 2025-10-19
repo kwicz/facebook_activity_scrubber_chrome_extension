@@ -84,16 +84,24 @@ document.addEventListener('DOMContentLoaded', function () {
     isOnActivityPage = isCorrect;
 
     if (isCorrect) {
+      // On activity page - disable "Go to Activity Page" button
       viewActivityLogButton.classList.remove('bounce', 'btn-warning');
       viewActivityLogButton.classList.add('btn-secondary');
+      viewActivityLogButton.disabled = true;
 
-      // Update main status when on correct page
+      // Make "Start Cleaning" button bouncy if not running
       if (!isRunning) {
+        startButton.classList.add('bounce');
         updateStatus('Ready to clean your Facebook activity');
       }
     } else {
+      // Not on activity page - enable "Go to Activity Page" button and make it bouncy
       viewActivityLogButton.classList.remove('btn-secondary');
       viewActivityLogButton.classList.add('bounce', 'btn-warning');
+      viewActivityLogButton.disabled = false;
+
+      // Remove bounce from "Start Cleaning" button
+      startButton.classList.remove('bounce');
 
       // Update main status when not on correct page
       if (!isRunning) {
@@ -348,7 +356,7 @@ function updateButtonState() {
       startButton.disabled = true;
     } else {
       startButton.textContent = 'Start Cleaning Process';
-      startButton.className = 'btn';
+      startButton.className = 'btn bounce';
       startButton.disabled = false;
     }
   }
