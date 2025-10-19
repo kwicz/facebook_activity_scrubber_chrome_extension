@@ -7,7 +7,8 @@
       "Bash(node --check nodeSignature.js)",
       "Bash(node --check content.js)",
       "Bash(node --check constants.js)",
-      "Bash(node --check domCache.js)"
+      "Bash(node --check domCache.js)",
+      "Read(//var/folders/15/9nrrzmw50f39y9xfny8jjbz40000gp/T/TemporaryItems/NSIRD_screencaptureui_asa8uE/**)"
     ],
     "deny": [],
     "ask": []

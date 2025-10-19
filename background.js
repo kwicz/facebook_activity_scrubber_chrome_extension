@@ -236,8 +236,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
   } else if (message.action === 'forceReload') {
     // Handle force reload request from debug panel
-    console.log('Force reload requested:', message.message);
-
     // Respond to let the content script know we received the message
     if (sendResponse) {
       sendResponse({ success: true, reloading: true });

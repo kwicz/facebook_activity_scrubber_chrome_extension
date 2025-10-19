@@ -23,11 +23,12 @@
       .container {
         background: white;
         padding: 16px;
-        border-radius: 8px;
+        border-radius: 0;
         margin: 0;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-        height: 100%;
-        overflow: hidden;
+        min-height: 600px;
+        height: auto;
+        overflow-y: auto;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -432,10 +433,8 @@
           <div class="step-number">2</div>
           <div class="step-title">Navigate to Activity Page</div>
           <div class="step-content">
-            <div class="field-info">
-              Go to your Facebook activity log to begin cleaning
-            </div>
-            <button id="viewActivityLog" class="btn btn-secondary">
+            Go to your Facebook activity log to begin cleaning
+            <button id="viewActivityLog" class="btn btn-secondary" style="margin-top: 6px">
               Go to Activity Page
             </button>
           </div>

@@ -247,6 +247,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // Record the time of last command acknowledgment
       chrome.storage.local.set({ lastCommandTime: Date.now() });
+    } else if (message.action === 'cleaningCompleted') {
+      // Cleaning process has fully completed
+      setRunningState(false);
+      updateStatusWithLink(
+        'All Clean! Next step: ',
+        'Demonetize your account',
+        'https://johnoliverwantsyourraterotica.com/'
+      );
+
+      // Record the time of last command acknowledgment
+      chrome.storage.local.set({ lastCommandTime: Date.now() });
     }
   });
 
@@ -304,6 +315,36 @@ function updateStatus(message) {
   }
 }
 
+// Helper function to update status with a clickable link
+function updateStatusWithLink(prefix, linkText, linkUrl) {
+  const statusElement = document.getElementById('status');
+  if (statusElement) {
+    // Clear existing content
+    statusElement.textContent = '';
+
+    // Add prefix text
+    statusElement.appendChild(document.createTextNode(prefix));
+
+    // Create and add link
+    const link = document.createElement('a');
+    link.textContent = linkText;
+    link.href = linkUrl;
+    link.target = '_blank';
+    link.style.color = '#1877f2';
+    link.style.fontWeight = '600';
+    link.style.textDecoration = 'underline';
+    link.style.cursor = 'pointer';
+
+    // Ensure link opens in new tab
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      chrome.tabs.create({ url: linkUrl });
+    });
+
+    statusElement.appendChild(link);
+  }
+}
+
 // Helper function to update the button state
 function updateButtonState() {
   const startButton = document.getElementById('startButton');
@@ -337,8 +378,6 @@ function ensureContentScriptInjected(tabId, callback) {
   try {
     chrome.tabs.sendMessage(tabId, { action: 'ping' }, function (response) {
       if (chrome.runtime.lastError) {
-        console.log('Content script not detected, injecting it now...');
-
         // Inject both scripts in the correct order (debugger.js first, then content.js)
         chrome.scripting.executeScript(
           {
@@ -353,8 +392,6 @@ function ensureContentScriptInjected(tabId, callback) {
               );
               callback(false);
             } else {
-              console.log('Content scripts injected successfully');
-
               // Wait a moment for the scripts to initialize then verify it's working
               setTimeout(function () {
                 verifyContentScriptActive(tabId, callback);
@@ -364,7 +401,6 @@ function ensureContentScriptInjected(tabId, callback) {
         );
       } else {
         // Script already exists and responded to ping
-        console.log('Content script already active');
         callback(true);
       }
     });
@@ -386,7 +422,6 @@ function verifyContentScriptActive(tabId, callback) {
       );
       callback(false);
     } else {
-      console.log('Content script verified active');
       callback(true);
     }
   });

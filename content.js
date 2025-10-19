@@ -537,7 +537,6 @@ async function processSingleItem(menuButton) {
     let activitySignature = null;
     if (typeof extractActivitySignature === 'function') {
       activitySignature = extractActivitySignature(menuButton);
-      console.log('[RESURRECTION] processSingleItem - Signature extracted:', !!activitySignature);
 
       if (activitySignature && typeof wasRecentlyDeleted === 'function') {
         if (wasRecentlyDeleted(activitySignature)) {
@@ -739,7 +738,6 @@ async function processSingleItem(menuButton) {
 
       // For Unlike/Remove Reaction, assume success immediately (no modal shown)
       if (isUnlikeAction) {
-        console.log('[RESURRECTION] Unlike action detected - assuming immediate success');
         await sleep(500); // Brief wait for action to complete
         confirmed = true;
       } else if (typeof window.handleConfirmationModal !== 'undefined') {
@@ -751,7 +749,6 @@ async function processSingleItem(menuButton) {
         });
 
         confirmed = modalResult.success;
-        console.log('[RESURRECTION] Modal handler result:', { confirmed, modalResult });
 
         // If no modal appeared, check for DOM changes
         if (!confirmed) {
@@ -761,7 +758,6 @@ async function processSingleItem(menuButton) {
             urlBefore,
             settings.timing.noModalWait
           );
-          console.log('[RESURRECTION] After checkNoModalDeletion, confirmed =', confirmed);
         }
       } else {
         // Fallback to original modal handling logic
@@ -825,8 +821,6 @@ async function processSingleItem(menuButton) {
         }
       }
 
-      console.log('[RESURRECTION] Checking if deletion was confirmed. confirmed =', confirmed);
-
       if (confirmed) {
         // Wait for modal to disappear or action to complete
         await sleep(settings.timing.actionComplete);
@@ -835,16 +829,8 @@ async function processSingleItem(menuButton) {
         updateStats();
 
         // Record deletion in last-deleted tracking to detect resurrections
-        console.log('[RESURRECTION] About to record deletion. Signature exists:', !!activitySignature);
         if (activitySignature && typeof recordDeletion === 'function') {
-          console.log('[RESURRECTION] Calling recordDeletion...');
           recordDeletion(activitySignature);
-          console.log('[RESURRECTION] recordDeletion completed');
-        } else {
-          console.warn('[RESURRECTION] Cannot record deletion:', {
-            hasSignature: !!activitySignature,
-            hasFunction: typeof recordDeletion === 'function'
-          });
         }
 
         log(
@@ -908,16 +894,8 @@ async function processSingleItem(menuButton) {
                   updateStats();
 
                   // Record deletion in last-deleted tracking to detect resurrections
-                  console.log('[RESURRECTION] Retry path - About to record deletion. Signature exists:', !!activitySignature);
                   if (activitySignature && typeof recordDeletion === 'function') {
-                    console.log('[RESURRECTION] Retry path - Calling recordDeletion...');
                     recordDeletion(activitySignature);
-                    console.log('[RESURRECTION] Retry path - recordDeletion completed');
-                  } else {
-                    console.warn('[RESURRECTION] Retry path - Cannot record deletion:', {
-                      hasSignature: !!activitySignature,
-                      hasFunction: typeof recordDeletion === 'function'
-                    });
                   }
                 }
               }
@@ -1037,7 +1015,7 @@ function updateStats() {
 
 function log(message, type = 'info') {
   const timestamp = new Date().toLocaleTimeString();
-  console.log(`[${timestamp}] [FB Cleaner] ${message}`);
+  // Log messages are now only sent to debug panel, not console
 }
 window.log = log;
 

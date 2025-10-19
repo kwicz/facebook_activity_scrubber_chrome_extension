@@ -10,9 +10,6 @@
 // Store last 2 deleted activities IN MEMORY (window object)
 if (!window.lastDeletedActivities) {
   window.lastDeletedActivities = [];
-  console.log('[RESURRECTION] Initialized lastDeletedActivities in window object (in-memory)');
-} else {
-  console.log('[RESURRECTION] lastDeletedActivities already exists with', window.lastDeletedActivities.length, 'entries');
 }
 
 /**
@@ -86,13 +83,6 @@ function extractActivitySignature(element) {
       article: container  // Keep reference to container for later manipulation
     };
 
-    console.log('[RESURRECTION] Extracted signature:', {
-      textContentPreview: textContent.substring(0, 100) + (textContent.length > 100 ? '...' : ''),
-      timestamp: timestamp,
-      profileHref: profileHref.substring(0, 50),
-      hasArticle: !!container
-    });
-
     return signature;
   } catch (error) {
     console.error('[RESURRECTION] Error extracting activity signature:', error);
@@ -107,17 +97,8 @@ function extractActivitySignature(element) {
  */
 function wasRecentlyDeleted(signature) {
   if (!signature || !window.lastDeletedActivities) {
-    console.log('[RESURRECTION] Check skipped - no signature or tracking array');
     return false;
   }
-
-  console.log('[RESURRECTION] Checking if activity was recently deleted...');
-  console.log('[RESURRECTION] Current activity:', {
-    textContentPreview: signature.textContent.substring(0, 100) + (signature.textContent.length > 100 ? '...' : ''),
-    timestamp: signature.timestamp,
-    profileHref: signature.profileHref?.substring(0, 50)
-  });
-  console.log('[RESURRECTION] Comparing against last', window.lastDeletedActivities.length, 'deletions:');
 
   // Check if this matches any of the last 2 deleted activities
   let matchFound = false;
@@ -131,20 +112,9 @@ function wasRecentlyDeleted(signature) {
                     (timestampMatch || deleted.timestamp === '' || signature.timestamp === '') &&
                     (profileMatch || deleted.profileHref === '' || signature.profileHref === '');
 
-    console.log(`[RESURRECTION] Deletion #${index + 1}:`, {
-      textContentPreview: deleted.textContent.substring(0, 100) + (deleted.textContent.length > 100 ? '...' : ''),
-      timestamp: deleted.timestamp,
-      profileHref: deleted.profileHref?.substring(0, 50),
-      textMatch,
-      timestampMatch,
-      profileMatch,
-      overallMatch: isMatch
-    });
-
     if (isMatch) matchFound = true;
   });
 
-  console.log('[RESURRECTION] Match found:', matchFound);
   return matchFound;
 }
 
@@ -154,7 +124,6 @@ function wasRecentlyDeleted(signature) {
  */
 function recordDeletion(signature) {
   if (!signature || !window.lastDeletedActivities) {
-    console.log('[RESURRECTION] Cannot record - no signature or tracking array');
     return;
   }
 
@@ -172,26 +141,6 @@ function recordDeletion(signature) {
   if (window.lastDeletedActivities.length > 2) {
     window.lastDeletedActivities = window.lastDeletedActivities.slice(0, 2);
   }
-
-  console.log('[RESURRECTION] ✓ DELETION RECORDED - Now tracking', window.lastDeletedActivities.length, 'deletions');
-  console.log('[RESURRECTION] Stored in: window.lastDeletedActivities (in-memory)');
-  console.log('[RESURRECTION] Latest deletion:', {
-    textContentPreview: record.textContent.substring(0, 100) + (record.textContent.length > 100 ? '...' : ''),
-    timestamp: record.timestamp,
-    profileHref: record.profileHref.substring(0, 50),
-    deletedAt: new Date(record.deletedAt).toLocaleTimeString()
-  });
-
-  // Show all tracked deletions
-  console.log('[RESURRECTION] === ALL TRACKED DELETIONS ===');
-  window.lastDeletedActivities.forEach((del, idx) => {
-    console.log(`[RESURRECTION] #${idx + 1}:`, {
-      textContentPreview: del.textContent.substring(0, 80) + (del.textContent.length > 80 ? '...' : ''),
-      timestamp: del.timestamp,
-      profileHref: del.profileHref?.substring(0, 40),
-      deletedAt: new Date(del.deletedAt).toLocaleTimeString()
-    });
-  });
 }
 
 /**
@@ -231,9 +180,6 @@ function hideArticleWithErrorBadge(article) {
 
     // Insert the badge wrapper right before the hidden article
     article.parentNode.insertBefore(badgeWrapper, article);
-
-    console.log('[RESURRECTION] ✓ Added resurrection error badge with actual content');
-    console.log('[RESURRECTION] ✓ Article hidden due to resurrection');
   } catch (error) {
     console.error('[RESURRECTION] Error hiding article with badge:', error);
   }
