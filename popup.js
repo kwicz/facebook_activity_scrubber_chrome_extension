@@ -15,7 +15,14 @@ document.addEventListener('DOMContentLoaded', function () {
   const statusElement = document.getElementById('status');
   const step2 = document.querySelector('.step:nth-child(2)');
   const step3 = document.querySelector('.step:nth-child(3)');
-  const debugToggle = document.getElementById('debugToggle');
+
+  // Page navigation elements
+  const mainPage = document.getElementById('mainPage');
+  const nextStepsPage = document.getElementById('nextStepsPage');
+  const nextStepsLink = document.getElementById('nextStepsLink');
+  const backLink = document.getElementById('backLink');
+  const demonetizeLink = document.getElementById('demonetizeLink');
+  const deleteLink = document.getElementById('deleteLink');
 
   // Check page status immediately
   checkPageStatus();
@@ -35,15 +42,6 @@ document.addEventListener('DOMContentLoaded', function () {
   chrome.storage.local.get(['isRunning'], function (result) {
     isRunning = !!result.isRunning; // Convert to boolean
     updateButtonState();
-  });
-
-  // Debug toggle functionality
-  let debugEnabled = false;
-
-  // Load debug state from storage
-  chrome.storage.local.get(['debugEnabled'], function (result) {
-    debugEnabled = !!result.debugEnabled;
-    updateDebugToggleUI();
   });
 
   // Function to check if user is on the correct page
@@ -223,6 +221,34 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  // Page navigation handlers
+  nextStepsLink.addEventListener('click', function (e) {
+    e.preventDefault();
+    mainPage.classList.remove('active');
+    nextStepsPage.classList.add('active');
+  });
+
+  backLink.addEventListener('click', function (e) {
+    e.preventDefault();
+    nextStepsPage.classList.remove('active');
+    mainPage.classList.add('active');
+  });
+
+  // External link handlers
+  demonetizeLink.addEventListener('click', function (e) {
+    e.preventDefault();
+    chrome.tabs.create({
+      url: 'https://johnoliverwantsyourraterotica.com/',
+    });
+  });
+
+  deleteLink.addEventListener('click', function (e) {
+    e.preventDefault();
+    chrome.tabs.create({
+      url: 'https://accountscenter.facebook.com/personal_info/',
+    });
+  });
+
   // Listen for messages from the content script
   chrome.runtime.onMessage.addListener(function (message) {
     if (message.action === 'updateStats') {
@@ -261,43 +287,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Debug toggle button handler
-  if (debugToggle) {
-    debugToggle.addEventListener('click', function () {
-      debugEnabled = !debugEnabled;
-      chrome.storage.local.set({ debugEnabled: debugEnabled });
-      updateDebugToggleUI();
-      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        if (tabs && tabs[0]) {
-          chrome.tabs.sendMessage(
-            tabs[0].id,
-            {
-              action: 'toggleDebug',
-              enabled: debugEnabled,
-            },
-            function (response) {
-              // Optionally handle response
-            }
-          );
-        }
-      });
-    });
-  }
-
-  // Update debug toggle button appearance
-  function updateDebugToggleUI() {
-    if (debugToggle) {
-      if (debugEnabled) {
-        debugToggle.classList.add('active');
-        debugToggle.textContent = 'Debug ON';
-        debugToggle.title = 'Click to disable debug panel';
-      } else {
-        debugToggle.classList.remove('active');
-        debugToggle.textContent = 'Debug OFF';
-        debugToggle.title = 'Click to enable debug panel';
-      }
-    }
-  }
 });
 
 // Helper function to update the stats display

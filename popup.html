@@ -199,7 +199,8 @@
       }
 
       @keyframes pulse {
-        0%, 100% {
+        0%,
+        100% {
           opacity: 1;
         }
         50% {
@@ -261,24 +262,6 @@
 
       .stat-failed .stat-number {
         color: #ef4444;
-      }
-
-      .progress-bar {
-        width: 100%;
-        height: 4px;
-        background: #e5e7eb;
-        border-radius: 2px;
-        margin-top: 8px;
-        overflow: hidden;
-        flex-shrink: 0;
-      }
-
-      .progress-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #10b981, #34d399);
-        width: 0%;
-        transition: width 0.3s ease;
-        border-radius: 2px;
       }
 
       .icon {
@@ -374,30 +357,6 @@
         }
       }
 
-      .btn-debug {
-        background: #6b7280;
-        color: white;
-        border: none;
-        padding: 4px 8px;
-        border-radius: 3px;
-        cursor: pointer;
-        font-size: 10px;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        opacity: 0.7;
-      }
-
-      .btn-debug:hover {
-        background: #4b5563;
-        opacity: 1;
-        transform: translateY(-1px);
-      }
-
-      .btn-debug.active {
-        background: #10b981;
-        opacity: 1;
-      }
-
       .btn:focus-visible,
       .btn-secondary:focus-visible {
         outline: 2px solid #1877f2;
@@ -405,84 +364,187 @@
         box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.25);
         z-index: 1;
       }
+
+      .bottom-link {
+        text-align: center;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #e5e7eb;
+        flex-shrink: 0;
+      }
+
+      .bottom-link a {
+        color: #1877f2;
+        text-decoration: none;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.2s ease;
+      }
+
+      .bottom-link a:hover {
+        color: #0d5dbf;
+        text-decoration: underline;
+      }
+
+      .page {
+        display: none;
+      }
+
+      .page.active {
+        display: block;
+      }
+
+      .next-steps-content {
+        padding: 20px 0;
+        text-align: center;
+      }
+
+      .next-steps-content h2 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin: 0 0 12px 0;
+      }
+
+      .next-steps-content p {
+        font-size: 12px;
+        color: #4b5563;
+        line-height: 1.6;
+        margin-bottom: 20px;
+      }
+
+      .next-steps-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .next-steps-buttons .or-divider {
+        font-size: 11px;
+        color: #6b7280;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .back-link {
+        text-align: center;
+        margin-top: 16px;
+      }
+
+      .back-link a {
+        color: #6b7280;
+        text-decoration: none;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .back-link a:hover {
+        color: #1877f2;
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
     <div id="featureContainer">
       <div class="container">
-        <div class="header">
-          <div class="logo">
-            <img src="/icons/icon.png" height="32" width="32""/>
+        <!-- Main Page -->
+        <div id="mainPage" class="page active">
+          <div class="header">
+            <div class="logo">
+              <img src="/icons/icon.png" height="32" width="32""/>
+            </div>
+            <h1>Facebook Activity Scrubber</h1>
+            <p class="subtitle">
+              Clear out your entire Facebook history with a single click
+            </p>
           </div>
-          <h1>Facebook Activity Scrubber</h1>
-          <p class="subtitle">
-            Clear out your entire Facebook history with a single click
-          </p>
-        </div>
 
-        <div class="step">
-          <div class="step-number">1</div>
-          <div class="step-title">Authentication</div>
-          <div class="step-content">
-            Please ensure you are logged into your Facebook account in your
-            browser before proceeding.
+          <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-title">Authentication</div>
+            <div class="step-content">
+              Please ensure you are logged into your Facebook account. Consider
+              <a
+                href="https://accountscenter.facebook.com/info_and_permissions/dyi/"
+                >downloading your account data</a
+              >
+              before proceeding.
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-title">Navigate to Activity Page</div>
+            <div class="step-content">
+              Go to your Facebook activity log to begin cleaning.
+              <button
+                id="viewActivityLog"
+                class="btn btn-secondary"
+                style="margin-top: 6px"
+              >
+                Go to Activity Page
+              </button>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-title">Start Cleaning</div>
+            <div class="step-content">
+              Begin the automated cleanup process for your Facebook activity.
+              <button id="startButton" style="margin-top: 6px" class="btn">
+                Start Cleaning Process
+              </button>
+            </div>
+          </div>
+
+          <div id="status" class="status">
+            Please navigate to your Facebook Activity Log to begin
+          </div>
+
+          <div class="stats">
+            <div class="stat-card stat-deleted">
+              <div class="stat-number" id="deletedCount">0</div>
+              <div class="stat-label">Cleaned</div>
+            </div>
+            <div class="stat-card stat-failed">
+              <div class="stat-number" id="failedCount">0</div>
+              <div class="stat-label">Skipped</div>
+            </div>
+          </div>
+
+          <div class="bottom-link">
+            <a id="nextStepsLink">All done? See next steps &#8594;</a>
           </div>
         </div>
 
-        <div class="step">
-          <div class="step-number">2</div>
-          <div class="step-title">Navigate to Activity Page</div>
-          <div class="step-content">
-            Go to your Facebook activity log to begin cleaning
-            <button id="viewActivityLog" class="btn btn-secondary" style="margin-top: 6px">
-              Go to Activity Page
-            </button>
+        <!-- Next Steps Page -->
+        <div id="nextStepsPage" class="page">
+          <div class="header">
+            <div class="logo">
+              <img src="/icons/icon.png" height="32" width="32""/>
+            </div>
+            <h1>Facebook Activity Scrubber</h1>
           </div>
-        </div>
 
-        <div class="step">
-          <div class="step-number">3</div>
-          <div class="step-title">Start Cleaning</div>
-          <div class="step-content">
-            Begin the automated cleanup process for your Facebook activity.
-            <button id="startButton" style="margin-top: 6px" class="btn">
-              Start Cleaning Process
-            </button>
+          <div class="next-steps-content">
+            <h2>Congrats on cleaning up your activity!</h2>
+            <p>Next, consider taking one of these actions:</p>
+            <div class="next-steps-buttons">
+              <button id="demonetizeLink" class="btn">
+                Demonetize Your Account
+              </button>
+              <div class="or-divider">OR</div>
+              <button id="deleteLink" class="btn">Delete Your Account</button>
+            </div>
           </div>
-        </div>
 
-        <div id="status" class="status">
-          Please navigate to your Facebook Activity Log to begin
-        </div>
-
-        <div class="stats">
-          <div class="stat-card stat-deleted">
-            <div class="stat-number" id="deletedCount">0</div>
-            <div class="stat-label">Cleaned</div>
+          <div class="back-link">
+            <a id="backLink">&#8592; Back to main page</a>
           </div>
-          <div class="stat-card stat-failed">
-            <div class="stat-number" id="failedCount">0</div>
-            <div class="stat-label">Skipped</div>
-          </div>
-        </div>
-
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill"></div>
-        </div>
-
-        <!-- Debug Panel Toggle -->
-        <div
-          class="debug-toggle"
-          style="margin-top: 8px; text-align: center; display: none"
-        >
-          <button
-            id="debugToggle"
-            class="btn-debug"
-            style="display: inline-block"
-            title="Toggle Debug Panel"
-          >
-            Debug
-          </button>
         </div>
       </div>
     </div>
