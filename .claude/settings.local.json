@@ -3,7 +3,11 @@
     "allow": [
       "Bash(mkdir -p .cursor/tasks)",
       "Bash(node -c content.js)",
-      "Bash(node -c popup.js)"
+      "Bash(node -c popup.js)",
+      "Bash(node --check nodeSignature.js)",
+      "Bash(node --check content.js)",
+      "Bash(node --check constants.js)",
+      "Bash(node --check domCache.js)"
     ],
     "deny": [],
     "ask": []

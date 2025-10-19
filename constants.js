@@ -98,16 +98,16 @@ const DEFAULT_SETTINGS = {
   batchSize: 10,
   pauseInterval: 1000,
   timing: {
-    menuWait: 500,
-    modalWait: 500,
-    actionComplete: 800,
-    nextItem: 600,
-    pageLoad: 2000,
-    noModalWait: 300,
-    scrollWait: 1500,
-    elementScroll: 300,
-    retryWait: 300,
-    hideFromProfileCheck: 200
+    menuWait: 300,         // Reduced from 500ms - wait after clicking menu button
+    modalWait: 300,        // Reduced from 500ms - wait for modal to appear
+    actionComplete: 500,   // Reduced from 800ms - wait after action completes
+    nextItem: 300,         // Reduced from 600ms - wait before next item
+    pageLoad: 2000,        // Keep same - page load wait
+    noModalWait: 200,      // Reduced from 300ms - wait when no modal appears
+    scrollWait: 1500,      // Keep same - scroll wait
+    elementScroll: 200,    // Reduced from 300ms - element scroll wait
+    retryWait: 200,        // Reduced from 300ms - retry wait
+    hideFromProfileCheck: 100  // Reduced from 200ms - hide from profile check
   },
   maxConsecutiveFailures: 5,
   maxPageRefreshes: 5,
@@ -120,6 +120,7 @@ const INITIAL_STATS = {
   deleted: 0,
   failed: 0,
   skipped: 0,
+  zombies: 0,  // Resurrected nodes (deleted 3+ times)
   total: 0,
   progress: 0,
   pageRefreshes: 0

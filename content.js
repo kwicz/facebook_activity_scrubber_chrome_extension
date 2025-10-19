@@ -33,6 +33,29 @@ style.textContent = typeof STYLES !== 'undefined' ? STYLES.PERMANENT_TAG : `
   .fas-permanent-profile-change::after {
         content: "Profile changes cannot be removed";
   }
+
+  /* Resurrection error badge - shows when activity keeps reappearing */
+  .fas-resurrection-error {
+        position: relative !important;
+        display: block !important;
+        min-height: 30px !important;
+  }
+
+  .fas-resurrection-error::after {
+        content: "Activity cannot be deleted - keeps reappearing" !important;
+        display: inline-block !important;
+        background: #ff4444 !important;
+        color: white !important;
+        padding: 4px 8px !important;
+        border-radius: 4px !important;
+        font-size: 10px !important;
+        font-weight: 500 !important;
+        white-space: nowrap !important;
+        z-index: 10000 !important;
+        box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3) !important;
+        border: 1px solid #cc0000 !important;
+        pointer-events: none !important;
+  }
 `;
 document.head.appendChild(style);
 
@@ -69,6 +92,7 @@ const stats = typeof INITIAL_STATS !== 'undefined'
       deleted: 0,
       failed: 0,
       skipped: 0,
+      zombies: 0,  // Track zombie nodes (resurrected nodes)
       total: 0,
       progress: 0,
       pageRefreshes: 0,
@@ -103,6 +127,7 @@ window.addEventListener('load', async () => {
           'pageRefreshes',
           'consecutiveFailures',
           'refreshTimestamp',
+          'lastDeletedActivities',  // Include last deleted activities
         ];
 
     const result = await chrome.storage.local.get(storageKeys);
@@ -122,6 +147,12 @@ window.addEventListener('load', async () => {
         settings = { ...settings, ...result.cleanerSettings };
         if (result.cleanerStats) {
           Object.assign(stats, result.cleanerStats);
+        }
+
+        // Restore last deleted activities for resurrection detection
+        if (result.lastDeletedActivities && Array.isArray(result.lastDeletedActivities)) {
+          window.lastDeletedActivities = result.lastDeletedActivities;
+          log(`Restored last deleted activities: ${window.lastDeletedActivities.length} entries`, 'info');
         }
 
         // Restore additional state variables
@@ -215,6 +246,7 @@ async function storeStateBeforeRefresh() {
       pageRefreshes: pageRefreshes,
       consecutiveFailures: consecutiveFailures,
       refreshTimestamp: Date.now(),
+      lastDeletedActivities: window.lastDeletedActivities || [],  // Store last deleted for resurrection detection
     };
 
     // Store current state in Chrome storage
@@ -227,7 +259,7 @@ async function storeStateBeforeRefresh() {
       await chrome.storage.local.set(stateData);
     }
 
-    log('State stored before page refresh', 'info');
+    log('State stored before page refresh (including last deleted activities)', 'info');
   } catch (error) {
     log(`Error storing state before refresh: ${error.message}`, 'error');
   }
@@ -501,6 +533,33 @@ async function processSingleItem(menuButton) {
     // Extract activity data before clicking
     const activityData = extractActivityData(menuButton);
 
+    // Check if this activity was recently deleted (resurrection detection)
+    let activitySignature = null;
+    if (typeof extractActivitySignature === 'function') {
+      activitySignature = extractActivitySignature(menuButton);
+      console.log('[RESURRECTION] processSingleItem - Signature extracted:', !!activitySignature);
+
+      if (activitySignature && typeof wasRecentlyDeleted === 'function') {
+        if (wasRecentlyDeleted(activitySignature)) {
+          log('Activity was recently deleted but reappeared - hiding with error badge...', 'error');
+
+          // Hide the article and show error badge
+          if (typeof hideArticleWithErrorBadge === 'function') {
+            hideArticleWithErrorBadge(activitySignature.article);
+          }
+
+          stats.zombies++;
+          stats.skipped++;
+          stats.total++;
+          updateStats();
+
+          return false;
+        }
+      }
+    } else {
+      console.warn('[RESURRECTION] extractActivitySignature function not available');
+    }
+
     // Store element count before action for change detection
     const elementCountBefore = typeof window.menuCache !== 'undefined'
       ? window.menuCache.getMenuButtons().length
@@ -670,12 +729,20 @@ async function processSingleItem(menuButton) {
       menuItemToClick.click();
       await sleep(800);
 
+      // Special handling for Unlike/Remove Reaction - these don't show modals and complete immediately
+      const isUnlikeAction = menuText && (menuText.includes('Unlike') || menuText.includes('Remove Reaction'));
+
       log('Looking for confirmation modal...', 'info');
 
       // Use modal handler if available, otherwise fallback to original logic
       let confirmed = false;
 
-      if (typeof window.handleConfirmationModal !== 'undefined') {
+      // For Unlike/Remove Reaction, assume success immediately (no modal shown)
+      if (isUnlikeAction) {
+        console.log('[RESURRECTION] Unlike action detected - assuming immediate success');
+        await sleep(500); // Brief wait for action to complete
+        confirmed = true;
+      } else if (typeof window.handleConfirmationModal !== 'undefined') {
         // Use new modal handler (from modalHandler.js)
         const modalResult = await window.handleConfirmationModal({
           waitTime: settings.timing.modalWait,
@@ -684,6 +751,7 @@ async function processSingleItem(menuButton) {
         });
 
         confirmed = modalResult.success;
+        console.log('[RESURRECTION] Modal handler result:', { confirmed, modalResult });
 
         // If no modal appeared, check for DOM changes
         if (!confirmed) {
@@ -693,6 +761,7 @@ async function processSingleItem(menuButton) {
             urlBefore,
             settings.timing.noModalWait
           );
+          console.log('[RESURRECTION] After checkNoModalDeletion, confirmed =', confirmed);
         }
       } else {
         // Fallback to original modal handling logic
@@ -756,12 +825,27 @@ async function processSingleItem(menuButton) {
         }
       }
 
+      console.log('[RESURRECTION] Checking if deletion was confirmed. confirmed =', confirmed);
+
       if (confirmed) {
         // Wait for modal to disappear or action to complete
         await sleep(settings.timing.actionComplete);
         stats.deleted++;
         stats.total++;
         updateStats();
+
+        // Record deletion in last-deleted tracking to detect resurrections
+        console.log('[RESURRECTION] About to record deletion. Signature exists:', !!activitySignature);
+        if (activitySignature && typeof recordDeletion === 'function') {
+          console.log('[RESURRECTION] Calling recordDeletion...');
+          recordDeletion(activitySignature);
+          console.log('[RESURRECTION] recordDeletion completed');
+        } else {
+          console.warn('[RESURRECTION] Cannot record deletion:', {
+            hasSignature: !!activitySignature,
+            hasFunction: typeof recordDeletion === 'function'
+          });
+        }
 
         log(
           `Successfully deleted item. Total deleted: ${stats.deleted}`,
@@ -822,6 +906,19 @@ async function processSingleItem(menuButton) {
                   stats.deleted++;
                   stats.total++;
                   updateStats();
+
+                  // Record deletion in last-deleted tracking to detect resurrections
+                  console.log('[RESURRECTION] Retry path - About to record deletion. Signature exists:', !!activitySignature);
+                  if (activitySignature && typeof recordDeletion === 'function') {
+                    console.log('[RESURRECTION] Retry path - Calling recordDeletion...');
+                    recordDeletion(activitySignature);
+                    console.log('[RESURRECTION] Retry path - recordDeletion completed');
+                  } else {
+                    console.warn('[RESURRECTION] Retry path - Cannot record deletion:', {
+                      hasSignature: !!activitySignature,
+                      hasFunction: typeof recordDeletion === 'function'
+                    });
+                  }
                 }
               }
             }
@@ -947,7 +1044,8 @@ window.log = log;
 async function finishCleaning() {
   isRunning = false;
 
-  const finalMessage = `Cleaning completed: ${stats.deleted} deleted, ${stats.failed} failed, ${stats.skipped} skipped`;
+  const zombieInfo = stats.zombies > 0 ? `, ${stats.zombies} zombies` : '';
+  const finalMessage = `Cleaning completed: ${stats.deleted} deleted, ${stats.failed} failed, ${stats.skipped} skipped${zombieInfo}`;
   updateStatusMessage(finalMessage);
 
   // Clear the badge when cleaning is finished
