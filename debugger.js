@@ -1,6 +1,9 @@
 // Facebook Activity Scrubber - Debug Panel
 // Standalone debug module for monitoring and logging
 
+// Prevent multiple initialization
+if (typeof window.fbCleanerDebugger === 'undefined') {
+
 class FBCleanerDebugger {
   constructor() {
     this.debugPanel = null;
@@ -342,3 +345,5 @@ function enableDebugPanel() {
 
 // Make enableDebugPanel available globally for easy access
 window.enableDebugPanel = enableDebugPanel;
+
+} // End of initialization guard

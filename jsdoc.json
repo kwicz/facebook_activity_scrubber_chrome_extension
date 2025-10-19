@@ -1,0 +1,26 @@
+{
+  "source": {
+    "include": [
+      "constants.js",
+      "domCache.js",
+      "throttle.js",
+      "modalHandler.js",
+      "content.js",
+      "popup.js",
+      "background.js",
+      "debugger.js"
+    ],
+    "includePattern": ".+\\.js(doc|x)?$",
+    "excludePattern": "(^|\\/|\\\\)_"
+  },
+  "plugins": ["plugins/markdown"],
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false
+  },
+  "opts": {
+    "destination": "./docs",
+    "recurse": true,
+    "readme": "./README.md"
+  }
+}

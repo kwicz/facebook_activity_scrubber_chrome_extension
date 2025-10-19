@@ -1,9 +1,10 @@
 // Facebook Activity Scrubber Content Script
 // Rewritten to use the same robust logic as the standalone script
+// Now enhanced with performance utilities (constants, cache, throttle, modal handler)
 
-// Inject CSS for permanent-tag styling
+// Inject CSS for permanent-tag styling using constants
 const style = document.createElement('style');
-style.textContent = `
+style.textContent = typeof STYLES !== 'undefined' ? STYLES.PERMANENT_TAG : `
   .fas-permanent::after {
         position: absolute;
         bottom: -25px;
@@ -20,15 +21,15 @@ style.textContent = `
         border: 1px solid #cc0000;
         pointer-events: none;
   }
-  
+
   .fas-permanent-tag::after {
         content: "Untagged items cannot be removed";
   }
-  
+
   .fas-permanent-profile-change {
         position: relative;
   }
-  
+
   .fas-permanent-profile-change::after {
         content: "Profile changes cannot be removed";
   }
@@ -39,32 +40,39 @@ document.head.appendChild(style);
 let isRunning = false;
 let isPaused = false;
 let wasRunningBeforeRefresh = false;
-let settings = {
-  activityType: 'all',
-  timeRange: 'all',
-  batchSize: 10,
-  pauseInterval: 1000,
-  timing: {
-    menuWait: 500,
-    modalWait: 500,
-    actionComplete: 800,
-    nextItem: 600,
-    pageLoad: 2000,
-    noModalWait: 300,
-  },
-  maxConsecutiveFailures: 5,
-  maxPageRefreshes: 5,
-  maxActionRetries: 2,
-};
 
-const stats = {
-  deleted: 0,
-  failed: 0,
-  skipped: 0,
-  total: 0,
-  progress: 0,
-  pageRefreshes: 0,
-};
+// Use DEFAULT_SETTINGS from constants.js if available, otherwise fallback
+let settings = typeof DEFAULT_SETTINGS !== 'undefined'
+  ? { ...DEFAULT_SETTINGS }
+  : {
+      activityType: 'all',
+      timeRange: 'all',
+      batchSize: 10,
+      pauseInterval: 1000,
+      timing: {
+        menuWait: 500,
+        modalWait: 500,
+        actionComplete: 800,
+        nextItem: 600,
+        pageLoad: 2000,
+        noModalWait: 300,
+      },
+      maxConsecutiveFailures: 5,
+      maxPageRefreshes: 5,
+      maxActionRetries: 2,
+    };
+
+// Use INITIAL_STATS from constants.js if available, otherwise fallback
+const stats = typeof INITIAL_STATS !== 'undefined'
+  ? { ...INITIAL_STATS }
+  : {
+      deleted: 0,
+      failed: 0,
+      skipped: 0,
+      total: 0,
+      progress: 0,
+      pageRefreshes: 0,
+    };
 
 let consecutiveFailures = 0;
 let pageRefreshes = 0;
@@ -73,23 +81,37 @@ const errorTypes = {}; // Track different types of errors
 // Check if we were running before a refresh and resume if needed
 window.addEventListener('load', async () => {
   // Wait a moment for the page to fully load
-  await sleep(2000);
+  const POST_REFRESH_WAIT = typeof TIMING !== 'undefined' ? TIMING.POST_REFRESH_WAIT : 2000;
+  await sleep(POST_REFRESH_WAIT);
 
   try {
     // Check if cleaning was in progress before refresh
-    const result = await chrome.storage.local.get([
-      'isRunning',
-      'cleanerSettings',
-      'cleanerStats',
-      'pageRefreshes',
-      'consecutiveFailures',
-      'refreshTimestamp',
-    ]);
+    // Use STORAGE_KEYS if available
+    const storageKeys = typeof STORAGE_KEYS !== 'undefined'
+      ? [
+          STORAGE_KEYS.IS_RUNNING,
+          STORAGE_KEYS.CLEANER_SETTINGS,
+          STORAGE_KEYS.CLEANER_STATS,
+          STORAGE_KEYS.PAGE_REFRESHES,
+          STORAGE_KEYS.CONSECUTIVE_FAILURES,
+          STORAGE_KEYS.REFRESH_TIMESTAMP,
+        ]
+      : [
+          'isRunning',
+          'cleanerSettings',
+          'cleanerStats',
+          'pageRefreshes',
+          'consecutiveFailures',
+          'refreshTimestamp',
+        ];
+
+    const result = await chrome.storage.local.get(storageKeys);
 
     if (result.isRunning && result.cleanerSettings) {
       // Check if the refresh was recent (within last 30 seconds) to avoid false positives
+      const REFRESH_CHECK_WINDOW = typeof TIMING !== 'undefined' ? TIMING.REFRESH_CHECK_WINDOW : 30000;
       const timeSinceRefresh = Date.now() - (result.refreshTimestamp || 0);
-      if (timeSinceRefresh < 30000) {
+      if (timeSinceRefresh < REFRESH_CHECK_WINDOW) {
         log(
           'Detected page refresh during cleaning process. Resuming...',
           'info'
@@ -177,21 +199,33 @@ function showResumeNotification() {
   }, 5000);
 }
 
-// Function to store state before page refresh
+/**
+ * Store state before page refresh - using throttled writer if available
+ */
 async function storeStateBeforeRefresh() {
   try {
     // Update stats with current progress
     stats.pageRefreshes = pageRefreshes;
 
-    // Store current state in Chrome storage
-    await chrome.storage.local.set({
+    // Prepare state data
+    const stateData = {
       isRunning: true,
       cleanerSettings: settings,
       cleanerStats: stats,
       pageRefreshes: pageRefreshes,
       consecutiveFailures: consecutiveFailures,
       refreshTimestamp: Date.now(),
-    });
+    };
+
+    // Store current state in Chrome storage
+    // Use throttled writer if available, but flush immediately since we're refreshing
+    if (typeof window.storageWriter !== 'undefined') {
+      window.storageWriter.writeMultiple(stateData);
+      await window.storageWriter.flush(); // Force immediate write before refresh
+    } else {
+      // Fallback to direct storage
+      await chrome.storage.local.set(stateData);
+    }
 
     log('State stored before page refresh', 'info');
   } catch (error) {
@@ -316,15 +350,19 @@ async function processNextBatch() {
 
   while (!noMoreItems && isRunning && !isPaused) {
     try {
-      // Find all menu buttons (excluding permanent ones)
-      const menuButtons = document.querySelectorAll(
-        'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
-      );
+      // Find all menu buttons (excluding permanent ones) - using cache if available
+      const menuButtons = typeof window.menuCache !== 'undefined'
+        ? window.menuCache.getMenuButtons()
+        : document.querySelectorAll(
+            'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
+          );
 
       // Also check if there are any permanent posts to distinguish between "no posts at all" vs "only permanent posts"
-      const permanentButtons = document.querySelectorAll(
-        'div[aria-label="More options"].fas-permanent-tag, div[aria-label="More options"].fas-permanent-profile-change'
-      );
+      const permanentButtons = typeof window.menuCache !== 'undefined'
+        ? window.menuCache.getPermanentButtons()
+        : document.querySelectorAll(
+            'div[aria-label="More options"].fas-permanent-tag, div[aria-label="More options"].fas-permanent-profile-change'
+          );
 
       await sleep(600);
 
@@ -464,9 +502,11 @@ async function processSingleItem(menuButton) {
     const activityData = extractActivityData(menuButton);
 
     // Store element count before action for change detection
-    const elementCountBefore = document.querySelectorAll(
-      'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
-    ).length;
+    const elementCountBefore = typeof window.menuCache !== 'undefined'
+      ? window.menuCache.getMenuButtons().length
+      : document.querySelectorAll(
+          'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
+        ).length;
     const urlBefore = window.location.href;
 
     // Ensure the button is visible in viewport before clicking
@@ -510,8 +550,10 @@ async function processSingleItem(menuButton) {
       log(`Error checking for untagged post: ${checkError.message}`, 'warn');
     }
 
-    // Look for the menu items
-    const menuItems = document.querySelectorAll('div[role="menuitem"]');
+    // Look for the menu items - using cache if available
+    const menuItems = typeof window.menuCache !== 'undefined'
+      ? window.menuCache.getMenuItems()
+      : document.querySelectorAll('div[role="menuitem"]');
 
     // Wait a moment for the menu to fully appear
     await sleep(settings.timing.modalWait);
@@ -630,184 +672,181 @@ async function processSingleItem(menuButton) {
 
       log('Looking for confirmation modal...', 'info');
 
-      // Wait for any modal dialog to appear
-      await sleep(settings.timing.modalWait);
-
-      // Check specifically for the modal types
+      // Use modal handler if available, otherwise fallback to original logic
       let confirmed = false;
 
-      try {
-        // Check for Delete? modal first
-        const deleteModal = document.querySelector('div[aria-label="Delete?"]');
-        const removeModal = document.querySelector('div[aria-label="Remove?"]');
-        const removeTagsModal = document.querySelector(
-          'div[aria-label="Remove tags?"]'
-        );
-        const moveToTrashModal = document.querySelector(
-          'div[aria-label="Move to Trash?"]'
-        );
+      if (typeof window.handleConfirmationModal !== 'undefined') {
+        // Use new modal handler (from modalHandler.js)
+        const modalResult = await window.handleConfirmationModal({
+          waitTime: settings.timing.modalWait,
+          actionCompleteTime: settings.timing.actionComplete,
+          logFn: log
+        });
 
-        if (deleteModal) {
-          log('Delete? modal found', 'info');
-          const deleteButton = deleteModal.querySelector(
-            'div[aria-label="Delete"]'
-          );
-          if (deleteButton) {
-            log('Clicking Delete button...', 'info');
-            deleteButton.click();
-            confirmed = true;
-          }
-        } else if (removeModal) {
-          log('Remove? modal found', 'info');
-          const removeButton = removeModal.querySelector(
-            'div[aria-label="Remove"]'
-          );
-          if (removeButton) {
-            log('Clicking Remove button...', 'info');
-            removeButton.click();
-            confirmed = true;
-          }
-        } else if (removeTagsModal) {
-          log('Remove tags? modal found', 'info');
-          const removeTagsButton = removeTagsModal.querySelector(
-            'div[aria-label="Remove"]'
-          );
-          if (removeTagsButton) {
-            log('Clicking Remove button in Remove tags modal...', 'info');
-            removeTagsButton.click();
-            confirmed = true;
-          }
-        } else if (moveToTrashModal) {
-          log('Move to Trash? modal found', 'info');
-          const moveToTrashButton = moveToTrashModal.querySelector(
-            'div[aria-label="Move to Trash"]'
-          );
-          if (moveToTrashButton) {
-            log('Clicking Move to Trash button...', 'info');
-            moveToTrashButton.click();
-            confirmed = true;
-          }
-        } else {
-          // No modal found - check if the page content changed indicating a successful deletion
-          await sleep(settings.timing.noModalWait);
-          const elementCountAfter = document.querySelectorAll(
-            'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
-          ).length;
-          const urlAfter = window.location.href;
+        confirmed = modalResult.success;
 
-          // If we observe a change (fewer elements or URL change), consider it a success
-          if (
-            elementCountAfter < elementCountBefore ||
-            urlAfter !== urlBefore
-          ) {
-            log(
-              'No modal appeared, but item appears to have been deleted',
-              'info'
-            );
-            confirmed = true;
-          }
+        // If no modal appeared, check for DOM changes
+        if (!confirmed) {
+          const modalHandler = window.getModalHandler({ logFn: log });
+          confirmed = await modalHandler.checkNoModalDeletion(
+            elementCountBefore,
+            urlBefore,
+            settings.timing.noModalWait
+          );
         }
+      } else {
+        // Fallback to original modal handling logic
+        await sleep(settings.timing.modalWait);
 
-        if (confirmed) {
-          // Wait for modal to disappear or action to complete
-          await sleep(settings.timing.actionComplete);
-          stats.deleted++;
-          stats.total++;
-          updateStats();
+        try {
+          const deleteModal = document.querySelector('div[aria-label="Delete?"]');
+          const removeModal = document.querySelector('div[aria-label="Remove?"]');
+          const removeTagsModal = document.querySelector('div[aria-label="Remove tags?"]');
+          const moveToTrashModal = document.querySelector('div[aria-label="Move to Trash?"]');
 
+          if (deleteModal) {
+            log('Delete? modal found', 'info');
+            const deleteButton = deleteModal.querySelector('div[aria-label="Delete"]');
+            if (deleteButton) {
+              log('Clicking Delete button...', 'info');
+              deleteButton.click();
+              confirmed = true;
+            }
+          } else if (removeModal) {
+            log('Remove? modal found', 'info');
+            const removeButton = removeModal.querySelector('div[aria-label="Remove"]');
+            if (removeButton) {
+              log('Clicking Remove button...', 'info');
+              removeButton.click();
+              confirmed = true;
+            }
+          } else if (removeTagsModal) {
+            log('Remove tags? modal found', 'info');
+            const removeTagsButton = removeTagsModal.querySelector('div[aria-label="Remove"]');
+            if (removeTagsButton) {
+              log('Clicking Remove button in Remove tags modal...', 'info');
+              removeTagsButton.click();
+              confirmed = true;
+            }
+          } else if (moveToTrashModal) {
+            log('Move to Trash? modal found', 'info');
+            const moveToTrashButton = moveToTrashModal.querySelector('div[aria-label="Move to Trash"]');
+            if (moveToTrashButton) {
+              log('Clicking Move to Trash button...', 'info');
+              moveToTrashButton.click();
+              confirmed = true;
+            }
+          } else {
+            // No modal found - check if the page content changed
+            await sleep(settings.timing.noModalWait);
+            const elementCountAfter = typeof window.menuCache !== 'undefined'
+              ? window.menuCache.getMenuButtons().length
+              : document.querySelectorAll(
+                  'div[aria-label="More options"]:not(.fas-permanent-tag):not(.fas-permanent-profile-change)'
+                ).length;
+            const urlAfter = window.location.href;
+
+            if (elementCountAfter < elementCountBefore || urlAfter !== urlBefore) {
+              log('No modal appeared, but item appears to have been deleted', 'info');
+              confirmed = true;
+            }
+          }
+        } catch (modalError) {
+          log(`Error handling modal: ${modalError.message}`, 'error');
+        }
+      }
+
+      if (confirmed) {
+        // Wait for modal to disappear or action to complete
+        await sleep(settings.timing.actionComplete);
+        stats.deleted++;
+        stats.total++;
+        updateStats();
+
+        log(
+          `Successfully deleted item. Total deleted: ${stats.deleted}`,
+          'success'
+        );
+        return true;
+      } else {
+        log(
+          'Could not find expected buttons in the modal or confirm deletion',
+          'warn'
+        );
+
+        // Add retry logic for failed confirmations
+        let retrySuccess = false;
+
+        for (
+          let retryCount = 0;
+          retryCount < settings.maxActionRetries && !retrySuccess;
+          retryCount++
+        ) {
           log(
-            `Successfully deleted item. Total deleted: ${stats.deleted}`,
-            'success'
-          );
-          return true;
-        } else {
-          log(
-            'Could not find expected buttons in the modal or confirm deletion',
-            'warn'
+            `Retry attempt ${retryCount + 1}/${
+              settings.maxActionRetries
+            } for confirmation...`,
+            'info'
           );
 
-          // Add retry logic for failed confirmations
-          let retrySuccess = false;
+          // Try pressing Escape to close the dialog first
+          document.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape' })
+          );
+          await sleep(300);
 
-          for (
-            let retryCount = 0;
-            retryCount < settings.maxActionRetries && !retrySuccess;
-            retryCount++
-          ) {
+          // Try clicking the menu button again
+          try {
+            menuButton.click();
+            await sleep(settings.timing.menuWait);
+
+            // Try clicking the menu item again
+            if (menuItemToClick) {
+              menuItemToClick.click();
+              await sleep(settings.timing.modalWait);
+
+              // Check for confirmation dialog again
+              const anyModal = document.querySelector(
+                'div[aria-label="Delete?"], div[aria-label="Remove?"], div[aria-label="Remove tags?"], div[aria-label="Move to Trash?"]'
+              );
+              if (anyModal) {
+                const actionButton = anyModal.querySelector(
+                  'div[aria-label="Delete"], div[aria-label="Remove"], div[aria-label="Move to Trash"]'
+                );
+                if (actionButton) {
+                  actionButton.click();
+                  log('Retry succeeded!', 'success');
+                  retrySuccess = true;
+                  confirmed = true;
+
+                  stats.deleted++;
+                  stats.total++;
+                  updateStats();
+                }
+              }
+            }
+          } catch (retryError) {
             log(
-              `Retry attempt ${retryCount + 1}/${
-                settings.maxActionRetries
-              } for confirmation...`,
-              'info'
+              `Retry attempt ${retryCount + 1} failed: ${retryError.message}`,
+              'error'
             );
+          }
 
-            // Try pressing Escape to close the dialog first
+          // If still not successful, try pressing Escape to close any dialogs
+          if (!retrySuccess) {
             document.dispatchEvent(
               new KeyboardEvent('keydown', { key: 'Escape' })
             );
             await sleep(300);
-
-            // Try clicking the menu button again
-            try {
-              menuButton.click();
-              await sleep(settings.timing.menuWait);
-
-              // Try clicking the menu item again
-              if (menuItemToClick) {
-                menuItemToClick.click();
-                await sleep(settings.timing.modalWait);
-
-                // Check for confirmation dialog again
-                const anyModal = document.querySelector(
-                  'div[aria-label="Delete?"], div[aria-label="Remove?"], div[aria-label="Remove tags?"], div[aria-label="Move to Trash?"]'
-                );
-                if (anyModal) {
-                  const actionButton = anyModal.querySelector(
-                    'div[aria-label="Delete"], div[aria-label="Remove"], div[aria-label="Move to Trash"]'
-                  );
-                  if (actionButton) {
-                    actionButton.click();
-                    log('Retry succeeded!', 'success');
-                    retrySuccess = true;
-                    confirmed = true;
-
-                    stats.deleted++;
-                    stats.total++;
-                    updateStats();
-                  }
-                }
-              }
-            } catch (retryError) {
-              log(
-                `Retry attempt ${retryCount + 1} failed: ${retryError.message}`,
-                'error'
-              );
-            }
-
-            // If still not successful, try pressing Escape to close any dialogs
-            if (!retrySuccess) {
-              document.dispatchEvent(
-                new KeyboardEvent('keydown', { key: 'Escape' })
-              );
-              await sleep(300);
-            }
-          }
-
-          if (!retrySuccess) {
-            // If all retries failed, increment the failure count
-            stats.failed++;
-            stats.total++;
-            updateStats();
           }
         }
-      } catch (modalError) {
-        log(`Error handling modal: ${modalError.message}`, 'error');
-        // Try Escape to close any open dialogs
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-        await sleep(500);
-        stats.failed++;
-        stats.total++;
-        updateStats();
+
+        if (!retrySuccess) {
+          // If all retries failed, increment the failure count
+          stats.failed++;
+          stats.total++;
+          updateStats();
+        }
       }
     } else {
       log('No menu items found, closing menu...', 'warn');
@@ -861,20 +900,42 @@ async function scrollForMoreItems() {
   return false;
 }
 
+/**
+ * Update status message - using throttled sender if available
+ * @param {string} message - Status message to send
+ */
 function updateStatusMessage(message) {
-  try {
-    chrome.runtime.sendMessage({ action: 'updateStatus', status: message });
-  } catch (e) {
-    // Ignore errors if popup is closed
+  // Use throttled message sender if available (from throttle.js)
+  if (typeof window.statusMessageSender !== 'undefined') {
+    window.statusMessageSender.send({ status: message });
+  } else {
+    // Fallback to direct message
+    try {
+      chrome.runtime.sendMessage({ action: 'updateStatus', status: message });
+    } catch (e) {
+      // Ignore errors if popup is closed
+    }
   }
 }
 
+/**
+ * Update statistics - using throttled sender if available
+ */
 function updateStats() {
   stats.progress = stats.total > 0 ? (stats.deleted / stats.total) * 100 : 0;
   stats.pageRefreshes = pageRefreshes;
-  try {
-    chrome.runtime.sendMessage({ action: 'updateStats', stats });
-  } catch (e) {}
+
+  // Use throttled message sender if available (from throttle.js)
+  if (typeof window.statsMessageSender !== 'undefined') {
+    window.statsMessageSender.send({ stats });
+  } else {
+    // Fallback to direct message
+    try {
+      chrome.runtime.sendMessage({ action: 'updateStats', stats });
+    } catch (e) {
+      // Ignore errors if popup is closed
+    }
+  }
 }
 
 function log(message, type = 'info') {
@@ -1005,276 +1066,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       }
     }
-    return true;
-  } else if (message.action === 'startDemonetize') {
-    (async () => {
-      log('Demonetization: Starting demonetization process...', 'info');
-      updateStatusMessage('Starting demonetization process...');
-      // --- Step 1: Ad partner activity (updated flow) ---
-      try {
-        log(
-          'Demonetization: Navigating to Accounts Center Ads page...',
-          'info'
-        );
-        updateStatusMessage('Navigating to Accounts Center Ads page...');
-        window.location.href = 'https://accountscenter.facebook.com/ads';
-        await sleep(3500);
-        // Step 2: Click the span that says "Manage Info"
-        let manageInfoSpan = null;
-        for (let i = 0; i < 10; i++) {
-          manageInfoSpan = Array.from(document.querySelectorAll('span')).find(
-            (el) => el.textContent && el.textContent.match(/Manage Info/i)
-          );
-          if (manageInfoSpan) break;
-          await sleep(700);
-        }
-        if (!manageInfoSpan)
-          throw new Error('Could not find "Manage Info" span');
-        manageInfoSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await sleep(300);
-        manageInfoSpan.click();
-        log('Clicked "Manage Info"', 'info');
-        await sleep(1500);
-        // Step 3: Click the div that says "Activity information from ad partners"
-        let activityDiv = null;
-        for (let i = 0; i < 10; i++) {
-          activityDiv = Array.from(document.querySelectorAll('div')).find(
-            (el) =>
-              el.textContent &&
-              el.textContent.match(/Activity information from ad partners/i)
-          );
-          if (activityDiv) break;
-          await sleep(700);
-        }
-        if (!activityDiv)
-          throw new Error(
-            'Could not find "Activity information from ad partners" div'
-          );
-        activityDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await sleep(300);
-        activityDiv.click();
-        log('Clicked "Activity information from ad partners"', 'info');
-        await sleep(1500);
-        // Step 4: In the modal with role="dialog", click the <button>
-        let dialog = null;
-        for (let i = 0; i < 10; i++) {
-          dialog = document.querySelector('div[role="dialog"]');
-          if (dialog) break;
-          await sleep(700);
-        }
-        if (!dialog) throw new Error('Could not find dialog modal');
-        const dialogButton = dialog.querySelector('button');
-        if (!dialogButton) throw new Error('Could not find button in dialog');
-        dialogButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await sleep(300);
-        dialogButton.click();
-        log('Clicked button in dialog', 'info');
-        await sleep(1000);
-        // Step 5: Click the <input> with name="radio2"
-        let radio2 = null;
-        for (let i = 0; i < 10; i++) {
-          radio2 = dialog.querySelector('input[name="radio2"]');
-          if (radio2) break;
-          await sleep(700);
-        }
-        if (!radio2)
-          throw new Error('Could not find input[name="radio2"] in dialog');
-        radio2.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await sleep(300);
-        radio2.click();
-        log('Clicked radio2 input (opt-out)', 'info');
-        updateStatusMessage('Ad partner activity preference updated!');
-        log(
-          'Demonetization: Ad partner activity preference updated!',
-          'success'
-        );
-      } catch (err) {
-        log(
-          'Demonetization: Error during ad partner activity step: ' +
-            err.message,
-          'error'
-        );
-        updateStatusMessage('Error during demonetization: ' + err.message);
-      }
-      // --- Step 2: Ads from ad partners ---
-      try {
-        log(
-          'Demonetization: Navigating to Ads from ad partners settings...',
-          'info'
-        );
-        updateStatusMessage('Navigating to Ads from ad partners settings...');
-        window.location.href =
-          'https://www.facebook.com/adpreferences/ad_settings/partner_ads';
-        await sleep(3500);
-        log(
-          'Demonetization: Looking for “Don’t show me ads from ad partners” option...',
-          'info'
-        );
-        updateStatusMessage(
-          'Looking for “Don’t show me ads from ad partners” option...'
-        );
-        let found = false;
-        let attempts = 0;
-        while (!found && attempts < 10) {
-          const labels2 = Array.from(
-            document.querySelectorAll('label, span, div')
-          );
-          const dontShowLabel = labels2.find(
-            (el) =>
-              el.textContent &&
-              el.textContent.match(
-                /Don’t show me ads from ad partners|Don't show me ads from ad partners|Do not show me ads from ad partners/i
-              )
-          );
-          if (dontShowLabel) {
-            log('Demonetization: Opt-out option found, clicking...', 'info');
-            dontShowLabel.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-            });
-            await sleep(400);
-            dontShowLabel.click();
-            found = true;
-            updateStatusMessage('Opt-out option selected. Closing modal...');
-            await sleep(1200);
-            const closeBtn = labels2.find(
-              (el) =>
-                el.textContent && el.textContent.match(/Close|Done|Save|OK/i)
-            );
-            if (closeBtn) {
-              log(
-                'Demonetization: Close/Done/Save button found, clicking...',
-                'info'
-              );
-              closeBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              await sleep(300);
-              closeBtn.click();
-              updateStatusMessage('Ads from ad partners opt-out complete!');
-              log(
-                'Demonetization: Ads from ad partners opt-out complete!',
-                'success'
-              );
-            } else {
-              log(
-                'Demonetization: Opt-out selected, but could not find Close/Done/Save button.',
-                'warn'
-              );
-              updateStatusMessage(
-                'Opt-out selected, but could not find Close/Done/Save button. Please check manually.'
-              );
-            }
-            break;
-          }
-          await sleep(1000);
-          attempts++;
-        }
-        if (!found) {
-          log(
-            'Demonetization: Could not find the opt-out option for ads from ad partners. Facebook may have changed their UI.',
-            'error'
-          );
-          updateStatusMessage(
-            'Could not find the opt-out option for ads from ad partners. Facebook may have changed their UI.'
-          );
-        }
-      } catch (err) {
-        log(
-          'Demonetization: Error during ads from ad partners step: ' +
-            err.message,
-          'error'
-        );
-        updateStatusMessage('Error during demonetization: ' + err.message);
-      }
-      // --- Step 3: Future activity disconnect ---
-      try {
-        log('Demonetization: Navigating to Manage Future Activity...', 'info');
-        updateStatusMessage('Navigating to Manage Future Activity...');
-        window.location.href =
-          'https://www.facebook.com/off_facebook_activity/manage_future_activity/';
-        await sleep(3500);
-        log(
-          'Demonetization: Looking for “Disconnect future activity” button...',
-          'info'
-        );
-        updateStatusMessage(
-          'Looking for “Disconnect future activity” button...'
-        );
-        let found = false;
-        let attempts = 0;
-        while (!found && attempts < 10) {
-          const labels3 = Array.from(
-            document.querySelectorAll('label, span, div, button')
-          );
-          const disconnectBtn = labels3.find(
-            (el) =>
-              el.textContent &&
-              el.textContent.match(
-                /Disconnect future activity|Turn off future activity|Manage Future Activity|Disconnect|Turn Off/i
-              )
-          );
-          if (disconnectBtn) {
-            log('Demonetization: Disconnect button found, clicking...', 'info');
-            disconnectBtn.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-            });
-            await sleep(400);
-            disconnectBtn.click();
-            found = true;
-            updateStatusMessage('Disconnect option selected. Confirming...');
-            await sleep(1200);
-            const confirmBtn = labels3.find(
-              (el) =>
-                el.textContent &&
-                el.textContent.match(/Confirm|Turn Off|Done|OK/i)
-            );
-            if (confirmBtn) {
-              log(
-                'Demonetization: Confirm/Done button found, clicking...',
-                'info'
-              );
-              confirmBtn.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-              });
-              await sleep(300);
-              confirmBtn.click();
-              updateStatusMessage('Future activity disconnected!');
-              log('Demonetization: Future activity disconnected!', 'success');
-            } else {
-              log(
-                'Demonetization: Disconnect selected, but could not find Confirm/Done button.',
-                'warn'
-              );
-              updateStatusMessage(
-                'Disconnect selected, but could not find Confirm/Done button. Please check manually.'
-              );
-            }
-            break;
-          }
-          await sleep(1000);
-          attempts++;
-        }
-        if (!found) {
-          log(
-            'Demonetization: Could not find the disconnect option for future activity. Facebook may have changed their UI.',
-            'error'
-          );
-          updateStatusMessage(
-            'Could not find the disconnect option for future activity. Facebook may have changed their UI.'
-          );
-        }
-      } catch (err) {
-        log(
-          'Demonetization: Error during future activity disconnect: ' +
-            err.message,
-          'error'
-        );
-        updateStatusMessage(
-          'Error during future activity disconnect: ' + err.message
-        );
-      }
-    })();
     return true;
   }
 });
